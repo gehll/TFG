@@ -1,0 +1,1154 @@
+---
+author: "Nombre Completo Autor"
+date: "27/10/2017"
+documentclass: book
+forprint: true  # true: imprime a dos caras, false: libro digital
+fontsize: 12pt # 10pt,11pt
+geometry: margin = 2.5cm 
+bibliography: ["bib/library.bib", "bib/paquetes.bib"]
+# metodobib -> true: natbib (descomentar: citation_package: natbib) 
+#           -> false: pandoc (comentar: citation_package: natbib)
+metodobib: true
+#natbib: plainnat, abbrvnat, unsrtnat
+biblio-style: "plainnat"
+#Método 2 (pandoc): descomente una línea de las 2 siguientes en caso de usarlo
+csl: methods-in-ecology-and-evolution.csl      # no numera mejor en las citas
+#csl: acm-sig-proceedings-long-author-list.csl  # numera peor en las citas
+link-citations: yes
+output: 
+  pdf_document:
+    keep_tex: no
+    number_sections: yes
+    citation_package: natbib  # comentado usa: pandoc-citeproc
+    #toc: yes
+    fig_caption: yes
+    template: latex/templateMemoriaTFE.tex
+    includes:
+      #before_body: portadas/latex_paginatitulo_modTFE.tex
+      #in_header: latex/latex_preambulo.tex
+      #after_body: latex/latex_antes_enddoc.tex
+---
+
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.path = 'figurasR/',
+                      echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.pos="H",fig.align="center",out.width="95%",
+                      cache=FALSE)
+
+```
+
+
+<!-- \setcounter{chapter}{2} -->
+<!-- \setcounter{chapter}{2} escribir 2 para capítulo 3  -->
+<!-- \pagenumbering{arabic} -->
+
+\ifdefined\ifprincipal
+\else
+\setlength{\parindent}{1em}
+\pagestyle{fancy}
+\setcounter{tocdepth}{4}
+\tableofcontents
+<!-- \nocite{*} -->
+\fi
+
+\ifdefined\ifdoblecara
+\fancyhead{}{}
+\fancyhead[LE,RO]{\scriptsize\rightmark}
+\fancyfoot[LO,RE]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[LE,RO]{\footnotesize\thepage}
+\else
+\fancyhead{}{}
+\fancyhead[RO]{\scriptsize\rightmark}
+\fancyfoot[LO]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[RO]{\footnotesize\thepage}
+\fi
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+
+# Resultados
+
+## Estimación de los modelos VAR y BVAR
+
+Para estudiar las diferencias en la estimación de modelos autorregresivos de manera frecuentista y bayesiana, se van a utilizar tres conjuntos de datos: El primero, recoge datos simulados con la estructura definida en \ref{eq:simvar} en el capítulo 2 con 1000 observaciones en cada serie, el segundo conjunto de datos también son simulados y siguen la misma estructura que el conjunto anterior solo que con 100 observaciones, y el tercero, es el conjunto de datos macroeconómicos de Estados Unidos entre 1959 y 2007 que recoge la inflación y el desempleo durante estos años para cada cuatrimestre. 
+
+Con los datos simulados sabemos los parámetros *reales* por lo que podemos comparar directamente las estimaciones de cada método con estos valores. Con los datos reales macroeconómicos de Estados Unidos, no sabemos el valor real de los parámetros, ni siquiera se sabe si la relación real puede seguir un modelo autorregresivo ni de de qué orden exactamente. Por esto, para la estimación de los modelos en estos datos, se va a utilizar la metodología Box-Jenkins partiendo de modelos sencillos e incorporando diferentes retardos según lo que indiquen los residuos del modelo, ya que como sabemos, han de tener estructura de ruido blanco para que se acepte el modelo. Además, se usará el AIC para comparar los modelos. Se compararán las estimaciones obtenidas con el método frecuentista y el bayesiano para ver las diferencias en los valores de los parámetros estimados y sus desviaciones estándar.
+
+Primero, se van a estimar los modelos sobre el conjunto de datos simulados. Empezaremos estimando el modelo VAR y después se estimará el modelo BVAR para el conjunto con 1000 observaciones.
+
+Como se ha visto en el análisis de los datos en el capítulo 2, las series simuladas son estacionarias tanto en varianza como en la parte regular por lo que no hace falta aplicar ninguna transformación a los datos para trabajar con ellos. Para estimar el modelo se va a usar la función **VAR()** de la librería `vars`. Como sabemos el número *real* de retardos de la relación entre las variables, vamos a especificar este valor a la hora de estimar la relación. La función **VAR()** estima mediante mínimos cuadrados ordinarios para cada ecuación, con el orden de retardos igual a 1 por defecto, y se fijará en 3 que es el orden estipulado en el modelo con el que se han simulado los datos, y se pueden incluir parámetros que recojan regresores deterministas y estacionalidad, aunque en el caso que nos concierne, los datos no presentan ninguna de estas características.
+
+```{r message=FALSE, warning=FALSE}
+set.seed(100)
+library(tsDyn) #Para simular datos según VAR especifico
+library(vars)
+library(kableExtra)
+
+#Matriz de coeficientes phi y matriz omega de covarianzas
+A <- matrix(c(0.5, 0, -0.1, 0.1, 0.2, 0.2, -0.3, 0.4, 0.2, -0.3, 0.3, -0.1), byrow = TRUE, nrow = 2, ncol = 6)
+varcovar <- matrix(c(1,0.3, 0.3, 1),2)
+
+#generamos datos
+datos_var <- VAR.sim(B = A, lag = 3, include = "none", n = 1000, varcov = varcovar)
+
+# Creamos el modelo
+varmat <- as.matrix(cbind(datos_var[,1], datos_var[,2]))
+varfit <- VAR(varmat, p=3, type = "none")
+sum_varfit <- summary(varfit)
+```
+
+```{r}
+knitr::kable(sum_varfit$varresult$y1$coefficients, caption = "Estimación modelo VAR(3) para X1 con 1000 observaciones. \\label{tab:varfitX11000}")
+```
+
+```{r}
+knitr::kable(sum_varfit$varresult$y2$coefficients, caption = "Estimación modelo VAR(3) para X2 con 1000 observaciones. \\label{tab:varfitX21000}")
+```
+
+```{r}
+knitr::kable(sum_varfit$covres, caption = "Estimación matriz var-cov modelo VAR(3) datos simulados 1000 observaciones. \\label{tab:varfitcov1000}",
+             row.names = F,
+             col.names = c("x1", "x2"))
+```
+
+Las tablas anteriores muestran que las estimaciones de los parámetros para el modelo de cada variable son significativas y se acercan mucho a los valores reales. Algunos valores de los coeficientes autorregresivos no son completamente precisos, pero teniendo en cuenta el valor de su desviación típica, todos incorporan el valor real del coeficiente en el intervalo al 95%. Lo mismo pasa con la estimación de la matriz de varianza-covarianzas que es casi igual a la matriz real. Este resultado era de esperar ya que los datos se han simulado con estructura autorregresiva y se sabe exactamente el número de retardos en las relaciones dinámicas.
+
+Las siguientes figuras recogen la estructura de los residuos del modelo estimado para cada serie:
+
+```{r fig.cap = "Residuos modelo VAR para X1 y X2. \\label{VAR_X1X2resid}"}
+par(mfrow=c(2,2))
+plot(residuals(varfit)[,1], type="l", ylab="resid", main="X1")
+acf(residuals(varfit)[,1], main="X1")
+plot(residuals(varfit)[,2], type="l", ylab="resid", main="X2")
+acf(residuals(varfit)[,2], main="X2")
+```
+
+Los residuos muestran comportamiento aleatorio en su serie sin presencia de dependencia. La autocorrelación muestral muestra que no hay retardos con autocorrelación significativa, lo cual indica que los residuos tienen estructura de ruido blanco y el modelo está bien estipulado. Tiene sentido ya que sabemos el número de retardos con el que se han generado las series, por lo que si el algoritmo de estimación está bien elaborado los residuos deben tener estructura de ruido blanco.
+
+Ahora, vamos a estimar el modelo BVAR. Para esto, vamos a utilizar el paquete `BVAR` que permite estimar modelos VAR bayesianos jerárquicos. La función que realizar la estimación se llama **bvar** pero antes de estimar el modelo hay que fijar las distribuciones a priori de los hiperparámetros y sus parámetros. Para la a priori *minnesota*, usamos la función `bv_mn()` de modo que los valores a priori de sus parámetros son: 0.2 de moda con desviación estándar 0.4 para $\lambda$, 2 de moda y 0.25 de desviación estándar para $\alpha$, y 0.004 de escala y 0.004 de forma para $\psi$. Estos son los valores por defecto implementados en el paquete y sugeridos por los autores. 
+
+En cuanto a la a priori *SOC* y *SUR*, se pueden incorporar con las funciones `bv_soc()` y `bv_sur()`. Se usarán también los parámetros por defecto propuestos por los autores. Por último, hay que usar Metropolis-Hasting para fijar el ratio de convergencia que asegure que se logre la convergencia. También se usarán los valores propuestos por los autores para la convergencia que en este caso son 0.05, 0.0001 y 0.0001 respectivamente.
+
+```{r message=F, warning=FALSE}
+library(BVAR)
+minnesota <- bv_mn(
+  lambda = bv_lambda(),
+  alpha = bv_alpha(),
+  psi = bv_psi(),
+  var = 1e6,
+  b = 1
+)
+
+priors <- bv_priors(
+  mn = minnesota,
+  soc = bv_soc(), sur = bv_sur()
+)
+
+mh <- bv_mh(
+  scale_hess = c(0.05, 0.0001, 0.0001)
+)
+
+run <- BVAR::bvar(varmat, lags = 3, 
+            n_draw = 50000, n_burn = 25000,
+            priors = priors, mh = mh, verbose = F)
+#coef(run)
+#vcov(run)
+```
+
+```{r}
+knitr::kable(coef(run), caption = "Estimación modelo BVAR(3) para datos simulados con 1000 observaciones. \\label{tab:bvarfit1000}")
+```
+
+```{r}
+knitr::kable(vcov(run), caption = "Estimación matriz var-cov para modelo BVAR(3) para datos simulados con 1000 observaciones. \\label{tab:bvarfitcov1000}")
+```
+
+Lo primero que cabe destacar es el tiempo que tarda en estimar el modelo de forma bayesiana con el muestreador de Gibbs. Este modelo ha tardado algo más de 1 minuto en estimarse con un número de muestras igual a 50000 y *burning* de 25000 (han sido los valores necesarios para que las estimaciones convergieran). El modelo estimado sugiere que el hiperparámetro $\lambda$ asociado a la a priori *minnesota* es 0.51907, para la a priori *SOC* el hiperparámetro toma valor 0.95185, y para la *SUR* 0.214. Estas dos últimas a prioris suelen introducirse para contrarrestar el problema de la *minnesota* que tiene un componente determinista que prima el modelo con los valores iniciales.
+
+En cuanto a la estimación de los parámetros, se ajustan muy bien a los reales, al igual que para la matriz de varianza-covarianzas. Las estimaciones de los coeficientes autorregresivos y de la matriz de varianza-covarianzas son muy similares a las estimaciones por el método frecuentista. Esto, en parte, se debe a que las series contienen 1000 observaciones y aunque existe información a priori, los datos tienen mucho peso en la estimación de la a posteriori. Estos resultados indican que el algoritmo es preciso pero este no es el contexto en el que saca su potencial.
+
+```{r fig.cap = "Convergencia de los Hiperparámetros BVAR. \\label{BVAR_hyperconvergence}"}
+lambda=run$hyper[, 1]
+soc=run$hyper[, 2]
+sur=run$hyper[, 3]
+par(mfrow=c(3,2))
+plot(lambda)
+plot(density(lambda), col="grey")
+plot(soc)
+plot(density(soc), col="grey")
+plot(sur)
+plot(density(sur), col="grey")
+```
+
+La figura \ref{BVAR_hyperconvergence} muestra que el hiperparámetro para la a priori *minnesota* ha convergido, y lo mismo para la *SOC* y *SUR* aunque presentan desviaciones muy marcadas cada cierto tiempo.
+
+```{r fig.cap = "Convergencia de los parámetros BVAR para X1. \\label{BVAR_X1convergence}"}
+draws_x1 <- run$beta[,,1]
+par(mfrow=c(3,2))
+lags_x1 = c("L1.X1", "L1.X2", "L2.X1", "L2.X2", "L3.X1", "L3.X2")
+plot(draws_x1[, 2], main = lags_x1[1], type="l")
+plot(draws_x1[, 3], main = lags_x1[2], type="l")
+plot(draws_x1[, 4], main = lags_x1[3], type="l")
+plot(draws_x1[, 5], main = lags_x1[4], type="l")
+plot(draws_x1[, 6], main = lags_x1[5], type="l")
+plot(draws_x1[, 7], main = lags_x1[6], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros BVAR para X1. \\label{BVAR_X1density}"}
+par(mfrow=c(3,2))
+plot(density(draws_x1[, 2]),  main = lags_x1[1])
+plot(density(draws_x1[, 3]),  main = lags_x1[2])
+plot(density(draws_x1[, 4]),  main = lags_x1[3])
+plot(density(draws_x1[, 5]),  main = lags_x1[4])
+plot(density(draws_x1[, 6]),  main = lags_x1[5])
+plot(density(draws_x1[, 7]),  main = lags_x1[6])
+```
+
+```{r fig.cap = "Convergencia de los parámetros BVAR para X2. \\label{BVAR_X2convergence}"}
+draws_x2 <- run$beta[,,2]
+par(mfrow=c(3,2))
+lags_x2 = c("L1.X1", "L1.X2", "L2.X1", "L2.X2", "L3.X1", "L3.X2")
+plot(draws_x2[, 2], main = lags_x2[1], type="l")
+plot(draws_x2[, 3], main = lags_x2[2], type="l")
+plot(draws_x2[, 4], main = lags_x2[3], type="l")
+plot(draws_x2[, 5], main = lags_x2[4], type="l")
+plot(draws_x2[, 6], main = lags_x2[5], type="l")
+plot(draws_x2[, 7], main = lags_x2[6], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros BVAR para X2. \\label{BVAR_X2density}"}
+par(mfrow=c(3,2))
+plot(density(draws_x2[, 2]),  main = lags_x2[1])
+plot(density(draws_x2[, 3]),  main = lags_x2[2])
+plot(density(draws_x2[, 4]),  main = lags_x2[3])
+plot(density(draws_x2[, 5]),  main = lags_x2[4])
+plot(density(draws_x2[, 6]),  main = lags_x2[5])
+plot(density(draws_x2[, 7]),  main = lags_x2[6])
+```
+
+```{r fig.cap = "Convergencia matriz covarianza modelo BVAR. \\label{BVAR_covarconvergence}"}
+draws_sigma_x1 <- run$sigma[,,1]
+draws_sigma_x2 <- run$sigma[,,2]
+par(mfrow=c(2,2))
+sigmas = c("Sigma2X1", "SigmaX1X2", "SigmaX2X1", "Sigma2X2")
+plot(draws_sigma_x1[, 1], main = sigmas[1], type="l")
+plot(draws_sigma_x1[, 2], main = sigmas[2], type="l")
+plot(draws_sigma_x2[, 1], main = sigmas[3], type="l")
+plot(draws_sigma_x2[, 2], main = sigmas[4], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros de covarianza muestra BVAR. \\label{BVAR_covardensity}"}
+par(mfrow=c(2,2))
+plot(density(draws_sigma_x1[, 1]),  main = sigmas[1])
+plot(density(draws_sigma_x1[, 2]),  main = sigmas[2])
+plot(density(draws_sigma_x2[, 1]),  main = sigmas[3])
+plot(density(draws_sigma_x2[, 2]),  main = sigmas[4])
+```
+
+Las figuras \ref{BVAR_X1convergence}, \ref{BVAR_X1density}, \ref{BVAR_X2convergence} y \ref{BVAR_X2density} muestran que los parámetros estimados para las relaciones autorregresivas han convergido y que su distribución a posteriori es normal. En cuanto a la estimación de la matriz de varianza-covarianzas, las figuras \ref{BVAR_covarconvergence} y \ref{BVAR_covardensity} también indican que las estimaciones han convergido.
+
+Después de estimar con los datos simulados de 1000 observaciones, vamos a estimar los modelos para el conjunto de datos simulados con 100 observaciones. En este caso, el conjunto de datos es significativamente más pequeño. Los métodos bayesianos con información a priori suelen funcionar mejor que los frecuentistas cuando tenemos pocos datos. Vamos a comprobar si esto se cumple para nuestros datos.
+
+```{r message=FALSE, warning=FALSE}
+set.seed(100)
+
+#generamos datos
+datos_var100 <- VAR.sim(B = A, lag = 3, include = "none", n = 100, varcov = varcovar)
+
+# Creamos el modelo
+varmat100 <- as.matrix(cbind(datos_var100[,1], datos_var100[,2]))
+varfit100 <- VAR(varmat100, p=3, type = "none")
+sum_varfit100 <- summary(varfit100)
+```
+
+```{r}
+knitr::kable(sum_varfit100$varresult$y1$coefficients, caption = "Estimación modelo VAR(3) para X1 con 100 observaciones. \\label{tab:varfitX1100}")
+```
+
+```{r}
+knitr::kable(sum_varfit100$varresult$y2$coefficients, caption = "Estimación modelo VAR(3) para X2 con 100 observaciones. \\label{tab:varfitX2100}")
+```
+
+```{r}
+knitr::kable(sum_varfit100$covres, caption = "Estimación matriz var-cov modelo VAR(3) con 100 observaciones. \\label{tab:varfitcov100}")
+```
+
+La tabla anterior tiene resultados interesantes. Aún especificando la estructura real que existe entre las variables, al utilizar 100 datos las estimaciones de los coeficientes no son buenas. Hay un coeficiente, el del primer retardo de $X$ para la estimación de $Y$, que lo estima como negativo y muy significativo cuando en realidad es positivo. También hay un coeficiente que lo estima como no significativo cuando en realidad toma el valor 0.2, este es el coeficiente del tercer retardo de $X$ para la estimación de $Y$. Aparte de esos dos casos tan claros, el resto de estimaciones están muy lejos de sus verdaderos valores.
+
+En cuanto a las estimaciones de los coeficientes de la segunda ecuación, pasa igual que en la primera, hay retardos que los estima como negativos y muy significativos cuando en verdad son positivos, hay un retardo que según el modelo no es significativo cuando en verdad sí lo es, y la mayoría de las estimaciones están muy lejos del valor real.
+
+En cuanto a la estimación de la matriz de varianza-covarianzas, las estimaciones de las covarianzas son casi 0 cuando en verdad son 0.3 y en cuanto a la varianza de las variables, estima muy bien la varianza de la segunda variable pero mal la de la primera (recordemos que ambas variables tienen varianza 1).
+
+Las siguientes figuras recogen la estructura de los residuos del modelo estimado para cada serie:
+
+```{r fig.cap = "Residuos modelo VAR para X1 y X2. \\label{VAR_X1X2resid100}"}
+par(mfrow=c(2,2))
+plot(residuals(varfit100)[,1], type="l", ylab="resid", main="X1")
+acf(residuals(varfit100)[,1], main="X1")
+plot(residuals(varfit100)[,2], type="l", ylab="resid", main="X2")
+acf(residuals(varfit100)[,2], main="X2")
+```
+
+Los residuos muestran comportamiento aleatorio en su serie sin presencia de dependencia. La autocorrelación muestral afirma que no hay retardos con autocorrelación significativa lo cual indica que los residuos tienen estructura de ruido blanco y el modelo está bien estipulado.
+
+Ahora, vamos a estimar el modelo BVAR. Los valores de las a priori serán los mismos que los utilizados en el conjunto con 1000 observaciones y que proponen los autores.
+
+```{r message=F, warning=FALSE}
+set.seed(100)
+run100 <- BVAR::bvar(varmat100, lags = 3, 
+                  n_draw = 50000, n_burn = 25000,
+                  priors = priors, mh = mh, verbose = F)
+#coef(run100)
+#vcov(run100)
+```
+
+```{r}
+knitr::kable(coef(run100), caption = "Estimación modelo BVAR(3) para datos simulados con 100 observaciones. \\label{tab:bvarfit100}")
+```
+
+```{r}
+knitr::kable(vcov(run100), caption = "Estimación matriz var-cov para modelo BVAR(3) para datos simulados con 100 observaciones. \\label{tab:bvarfitcov100}")
+```
+
+En cuanto a la estimación de los coeficientes, para la primera variable, en general las estimaciones no son muy precisas aunque hay algunos coeficientes que sí se aproximan bastante a su valor real como el segundo retardo de la $var2$ para la primera variable. Por otro lado, las estimaciones para el modelo de la segunda variables son bastante buena, muy cercanas a los valores reales. Esto es una mejora notable con respecto al modelo frecuentista donde en general todos los coeficientes estimaciones estaban muy lejos de sus valores reales. 
+
+En cuanto a la matriz de varianza-covarianzas, en general no estima muy bien los coeficientes aunque para las covarianzas las estimaciones se acercan más al valor real que con el método frecuentista, pero las varianzas se alejan en comparación.
+
+Vamos a sacar los gráficos de convergencia y densidad para la estimación bayesiana.
+
+```{r fig.cap = "Convergencia de los Hiperparámetros BVAR. \\label{BVAR_hyperconvergence100}"}
+lambda=run100$hyper[, 1]
+soc=run100$hyper[, 2]
+sur=run100$hyper[, 3]
+par(mfrow=c(3,2))
+plot(lambda)
+plot(density(lambda), col="grey")
+plot(soc)
+plot(density(soc), col="grey")
+plot(sur)
+plot(density(sur), col="grey")
+```
+
+La figura \ref{BVAR_hyperconvergence100} muestra que el hiperparámetro para la a priori *minnesota* ha convergido, igual para la *SUR* y en cuanto a la *SOC*, parece que ha llegado a converger pero presenta algunas rachas pronunciadas.
+
+```{r fig.cap = "Convergencia de los parámetros BVAR para X1. \\label{BVAR_X1convergence100}"}
+draws_x1 <- run100$beta[,,1]
+par(mfrow=c(3,2))
+lags_x1 = c("L1.X1", "L1.X2", "L2.X1", "L2.X2", "L3.X1", "L3.X2")
+plot(draws_x1[, 2], main = lags_x1[1], type="l")
+plot(draws_x1[, 3], main = lags_x1[2], type="l")
+plot(draws_x1[, 4], main = lags_x1[3], type="l")
+plot(draws_x1[, 5], main = lags_x1[4], type="l")
+plot(draws_x1[, 6], main = lags_x1[5], type="l")
+plot(draws_x1[, 7], main = lags_x1[6], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros BVAR para X1. \\label{BVAR_X1density100}"}
+par(mfrow=c(3,2))
+plot(density(draws_x1[, 2]),  main = lags_x1[1])
+plot(density(draws_x1[, 3]),  main = lags_x1[2])
+plot(density(draws_x1[, 4]),  main = lags_x1[3])
+plot(density(draws_x1[, 5]),  main = lags_x1[4])
+plot(density(draws_x1[, 6]),  main = lags_x1[5])
+plot(density(draws_x1[, 7]),  main = lags_x1[6])
+```
+
+```{r fig.cap = "Convergencia de los parámetros BVAR para X2. \\label{BVAR_X2convergence100}"}
+draws_x2 <- run100$beta[,,2]
+par(mfrow=c(3,2))
+lags_x2 = c("L1.X1", "L1.X2", "L2.X1", "L2.X2", "L3.X1", "L3.X2")
+plot(draws_x2[, 2], main = lags_x2[1], type="l")
+plot(draws_x2[, 3], main = lags_x2[2], type="l")
+plot(draws_x2[, 4], main = lags_x2[3], type="l")
+plot(draws_x2[, 5], main = lags_x2[4], type="l")
+plot(draws_x2[, 6], main = lags_x2[5], type="l")
+plot(draws_x2[, 7], main = lags_x2[6], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros BVAR para X2. \\label{BVAR_X2density100}"}
+par(mfrow=c(3,2))
+plot(density(draws_x2[, 2]),  main = lags_x2[1])
+plot(density(draws_x2[, 3]),  main = lags_x2[2])
+plot(density(draws_x2[, 4]),  main = lags_x2[3])
+plot(density(draws_x2[, 5]),  main = lags_x2[4])
+plot(density(draws_x2[, 6]),  main = lags_x2[5])
+plot(density(draws_x2[, 7]),  main = lags_x2[6])
+```
+
+```{r fig.cap = "Convergencia matriz covarianza modelo BVAR. \\label{BVAR_covarconvergence100}"}
+draws_sigma_x1 <- run100$sigma[,,1]
+draws_sigma_x2 <- run100$sigma[,,2]
+par(mfrow=c(2,2))
+sigmas = c("Sigma2X1", "SigmaX1X2", "SigmaX2X1", "Sigma2X2")
+plot(draws_sigma_x1[, 1], main = sigmas[1], type="l")
+plot(draws_sigma_x1[, 2], main = sigmas[2], type="l")
+plot(draws_sigma_x2[, 1], main = sigmas[3], type="l")
+plot(draws_sigma_x2[, 2], main = sigmas[4], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros de covarianza muestra BVAR. \\label{BVAR_covardensity100}"}
+par(mfrow=c(2,2))
+plot(density(draws_sigma_x1[, 1]),  main = sigmas[1])
+plot(density(draws_sigma_x1[, 2]),  main = sigmas[2])
+plot(density(draws_sigma_x2[, 1]),  main = sigmas[3])
+plot(density(draws_sigma_x2[, 2]),  main = sigmas[4])
+```
+
+Las figuras \ref{BVAR_X1convergence}, \ref{BVAR_X1density}, \ref{BVAR_X2convergence} y \ref{BVAR_X2density} muestran que los parámetros estimados para las relaciones autorregresivas han convergido y que su distribución a posteriori es normal. En cuanto a la estimación de la matriz de varianza-covarianzas, las figuras \ref{BVAR_covarconvergence} y \ref{BVAR_covardensity} también indican que las estimaciones han convergido.
+
+En general, cabe destacar que aunque las estimaciones no hayan sido demasiado precisas, el intervalo de confianza al 95% para la estimación bayesiana contiene a los verdaderos valores de los coeficientes en casi todas las estimaciones. Esto es una de las ventajas de la estimación bayesiana, aunque pueda tener un sesgo, se dispone de distribuciones de probabilidad.
+
+Las densidades de las covarianzas no llegan a recoger el verdadero valor, y para las varianzas solo se captura el verdadero valor dentro del intervalo de confianza al 95% para $\sigma_{var2}$
+
+Ahora vamos a estimar estos modelos para el conjunto de datos macroeconómicos de desempleo e inflación en Estados Unidos durante 1959-2007.
+
+En el apartado de análisis de datos se ha detectado que las series originales no son estacionarias en la parte regular y que necesitan una primera diferencia. Comenzamos estimando el modelo VAR frecuentista. Como no sabemos cuál es el número de retardos óptimo para la relación entre las variables, se empezará estimando un modelo con 3 retardos y después de analizar los residuos, el correlograma de éstos, y el nivel de significación de los parámetros estimados, se decidirá si el modelo está bien estipulado o si hace falta cambiar el número de retardos. En cuanto a la estacionalidad y a incluir constantes en el modelo, los datos no presentan estacionalidad de ningún tipo, ni regresores deterministas que modelar a través de constantes.
+
+```{r message=FALSE, warning=FALSE}
+#cogemos los datos
+library(bvartools)
+data("us_macrodata")
+colnames(us_macrodata) <- c("Inflación", "Desempleo", "Interés")
+
+
+# Creamos el modelo
+varmat_us <- as.matrix(cbind(diff(us_macrodata[,"Inflación"]), diff(us_macrodata[,"Desempleo"])))
+colnames(varmat_us) <- c("Inflación", "Desempleo")
+varfit_us <- VAR(varmat_us, p=2, type = "none")
+sum_varfitus <- summary(varfit_us)
+```
+
+```{r}
+knitr::kable(sum_varfitus$varresult$Inflación$coefficients, caption = "Estimación modelo VAR(2) para Inflación datos macro EE.UU. 1959-2007. \\label{tab:varfitusinf}")
+```
+
+```{r}
+knitr::kable(sum_varfitus$varresult$Desempleo$coefficients, caption = "Estimación modelo VAR(2) para Desempleo datos macro EE.UU. 1959-2007. \\label{tab:varfitusdesem}")
+```
+
+```{r}
+knitr::kable(sum_varfitus$covres, caption = "Estimación matriz var-cov modelo VAR(2) para datos macro EE.UU. 1959-2007.. \\label{tab:varfitcovus}")
+```
+
+```{r fig.cap = "Residuos modelo VAR para Inflación y Desempleo. \\label{VAR_infdesempresid}"}
+par(mfrow=c(2,2))
+plot(residuals(varfit_us)[,1], type="l", ylab="resid", main="Inflación")
+acf(residuals(varfit_us)[,1], main="Inflación")
+plot(residuals(varfit_us)[,2], type="l", ylab="resid", main="Desempleo")
+acf(residuals(varfit_us)[,2], main="Desempleo")
+```
+
+Después estimar varios modelos VAR, el modelo que parece ser el más indicado para recoger la relación entre las variables es un $VAR(2)$ ya que si incorporamos más retardos, las estimaciones no son significativas para todos los retardos superiores a 2, y, como podemos ver en \ref{VAR_infdesempresid}, los residuos de los modelos para cada variable presentan estructura de ruido blanco. Cabe resaltar que en el modelo estimado para el Desempleo, sólo el primer retardo es significativo, pero al ser un modelo VAR, hay que dejar los dos retardos ya que para el modelo de Inflación sí es significativo el segundo retardo.
+
+Ahora vamos a estimar este modelo pero de manera bayesiana.
+
+```{r}
+run_us <- BVAR::bvar(varmat_us, lags = 2, 
+               n_draw = 50000, n_burn = 25000,
+               priors = priors, mh = mh, verbose = F)
+
+#coef(run_us)
+#vcov(run_us)
+```
+
+```{r}
+knitr::kable(coef(run_us), caption = "Estimación modelo BVAR(2) para datos macro EE.UU. 1959-2007. \\label{tab:bvarfitus}")
+```
+
+```{r}
+knitr::kable(vcov(run_us), caption = "Estimación matriz var-cov modelo BVAR(2) para datos macro EE.UU. 1959-2007. \\label{tab:bvarfituscov}")
+```
+
+```{r fig.cap = "Draws y distribuciones a posteriori de los hiperparámetros para los datos US. \\label{BVAR_usplothiper}"}
+lambda=run_us$hyper[, 1]
+soc=run_us$hyper[, 2]
+sur=run_us$hyper[, 3]
+par(mfrow=c(3,2))
+plot(lambda)
+plot(density(lambda), col="grey")
+plot(soc)
+plot(density(soc), col="grey")
+plot(sur)
+plot(density(sur), col="grey")
+```
+
+Después de estimar varios modelos, al igual que con la inferencia frecuentista, el modelo que parece ser más adecuado es el que contiene dos retardos. Los resultados del modelo recogidos en \ref{tab:bvarfitus} y \ref{tab:bvarfituscov} son bastante parecidos a los resultados frecuentistas tanto en los coeficientes autorregresivos como en la matriz de varianza-covarianzas. Los hiperparámetros han convergido y el valor estimado de la log-verosimilitud es prácticamente idéntico.
+
+En cuanto a los coeficientes autorregresivos del modelo estimado para la inflación, 
+
+```{r fig.cap = "Convergencia de los parámetros BVAR para Inflación \\label{BVAR_infconvergence}"}
+draws_inflacion <- run_us$beta[,,1]
+par(mfrow=c(2,2))
+lags_inf = c("L1.Inflacion", "L1.Desempleo", "L2.Inflacion", "L2.Desempleo")
+plot(draws_inflacion[, 2], main = lags_inf[1], type="l")
+plot(draws_inflacion[, 3], main = lags_inf[2], type="l")
+plot(draws_inflacion[, 4], main = lags_inf[3], type="l")
+plot(draws_inflacion[, 5], main = lags_inf[4], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros BVAR para Inflación \\label{BVAR_infdensity}"}
+par(mfrow=c(3,2))
+plot(density(draws_inflacion[, 2]),  main = lags_inf[1])
+plot(density(draws_inflacion[, 3]),  main = lags_inf[2])
+plot(density(draws_inflacion[, 4]),  main = lags_inf[3])
+plot(density(draws_inflacion[, 5]),  main = lags_inf[4])
+```
+
+Las estimaciones de la distribución a posteriori convergen y las densidades de cada parámetro muestran que todos son significativos excepto para el retardo de orden 2 de desempleo, en línea con los resultados obtenidos con el método frecuentista.
+
+```{r fig.cap = "Convergencia de los parámetros BVAR para Desempleo \\label{BVAR_desemconvergence}"}
+draws_desempleo <- run_us$beta[,,2]
+par(mfrow=c(2,2))
+lags_inf = c("L1.Inflacion", "L1.Desempleo", "L2.Inflacion", "L2.Desempleo")
+plot(draws_desempleo[, 2], main = lags_inf[1], type="l")
+plot(draws_desempleo[, 3], main = lags_inf[2], type="l")
+plot(draws_desempleo[, 4], main = lags_inf[3], type="l")
+plot(draws_desempleo[, 5], main = lags_inf[4], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros BVAR para Desempleo \\label{BVAR_desemdensity}"}
+par(mfrow=c(3,2))
+plot(density(draws_desempleo[, 2]),  main = lags_inf[1])
+plot(density(draws_desempleo[, 3]),  main = lags_inf[2])
+plot(density(draws_desempleo[, 4]),  main = lags_inf[3])
+plot(density(draws_desempleo[, 5]),  main = lags_inf[4])
+```
+
+Las figuras \ref{BVAR_desemconvergence} y \ref{BVAR_desemdensity} muestran que las estimaciones de las distribuciones a posteriori para los coeficientes del modelo para el desempleo también han convergido y que solo es significativo el primer retardo para esta variable.
+
+Por último, las figuras \ref{BVAR_covarconvergenceu_us} y \ref{BVAR_covardensity_us} indican que la estimación de la matriz de varianza-covarianzas ha convergido y que al 95%, si miramos la densidad de $\sigma_{Desem, Infl}$, la estimación a posteriori sugiere que las series tienen covarianza 0 por lo que no habría relación contemporánea.
+
+```{r fig.cap = "Convergencia matriz covarianza modelo BVAR datos macro EE.UU. \\label{BVAR_covarconvergenceu_us}"}
+draws_sigma_x1_us <- run_us$sigma[,,1]
+draws_sigma_x2_us <- run_us$sigma[,,2]
+par(mfrow=c(2,2))
+sigmas = c("Sigma2Inflacion", "SigmaInfDesem", "SigmaDesemInf", "Sigma2Desempleo")
+plot(draws_sigma_x1_us[, 1], main = sigmas[1], type="l")
+plot(draws_sigma_x1_us[, 2], main = sigmas[2], type="l")
+plot(draws_sigma_x2_us[, 1], main = sigmas[3], type="l")
+plot(draws_sigma_x2_us[, 2], main = sigmas[4], type="l")
+```
+
+```{r fig.cap = "Densidad de los parámetros de covarianza muestral BVAR datos macro EE.UU. \\label{BVAR_covardensity_us}"}
+par(mfrow=c(2,2))
+plot(density(draws_sigma_x1_us[, 1]),  main = sigmas[1])
+plot(density(draws_sigma_x1_us[, 2]),  main = sigmas[2])
+plot(density(draws_sigma_x2_us[, 1]),  main = sigmas[3])
+plot(density(draws_sigma_x2_us[, 2]),  main = sigmas[4])
+```
+
+## Estimación de los modelos VECM y BVECM
+
+En este apartado vamos a analizar las series simuladas que son cointegradas, y los datos que recogen el LIBOR a 12 meses y los swaps OVERNIGHT a 9 meses. Primero, vamos a estimar el modeo VECM frecuentista a los datos simulados y después el modelo bayesiano para comparar los parámetros estimados con los *reales*. Hay que destacar que los parámetros reales con los que se han simulado los datos siguen la forma de \ref{eq:simvec}. Se va a usar la librería `tsDyn`, y, en específico la función `VECM` para estimar el modelo frecuentista. Como  método de estimación se usará la máxima verosimilitud de Johansen, ya que generalmente, produce mejores estimaciones que mínimos cuadrados ordinarios en dos fases. Como sabemos que los datos simulados se han creado con una estructura autorregresiva de 2 retardos, lo especificaremos en los parámetros del modelo.
+
+Primero, estimamos para el conjunto de datos simulados con 1000 observaciones:
+
+```{r}
+library(tsDyn)
+set.seed(100)
+library(mnormt)
+
+innov<-rmnorm(1000, varcov=diag(2))
+Bvecm <- rbind(c(-0.3, 0.2,-0.3, 0.2, 0.1), c(0.2, 0.4, -0.2, 0.1, 0.25))
+datos_VEC <- VECM.sim(B=Bvecm,  n=1000, beta=1.5, lag=2,include="none", innov=innov)
+
+vecm_datossim = VECM(datos_VEC, lag = 2, include = "none", estim = "ML")
+sum_vecfit <- summary(vecm_datossim)
+```
+
+```{r}
+knitr::kable(coefB(vecm_datossim), caption = "Estimación relación largo plazo modelo VECM(2) para datos simulados con 1000 observaciones. \\label{tab:betavecmfit1000}")
+```
+
+```{r}
+knitr::kable(sum_vecfit$coefficients, caption = "Estimación modelo VECM(2) para datos simulados con 1000 observaciones. \\label{tab:vecmfit1000}")
+```
+
+```{r}
+knitr::kable(sum_vecfit$sigma, caption = "Estimación matriz var-cov modelo VECM(2) para datos simulados con 1000 observaciones. \\label{tab:vecmfitcov1000}")
+```
+
+Las estimaciones son muy precisas, sobre todo para el parámetro $\beta$ de la relación de largo plazo. En general todos los coeficientes estimados son muy cercanos a los reales reflejados en \ref{eq:simvec} y son significativos al 5% como era de esperar. Los residuos de las figuras \ref{resid_vecsim1000x1} y \ref{resid_vecsim1000x2} indican que el modelo está bien especificado ya que los residuos tienen estructura aleatoria de ruido blanco.
+
+```{r, fig.cap = "Residuos X1 modelo VECM para datos simulados de 1000 observaciones. \\label{resid_vecsim1000x1}"}
+par(mfrow=c(2,1))
+plot(vecm_datossim$residuals[,1], main="Residuos para X1 VECM", ylab="Residuos")
+acf(vecm_datossim$residuals[,1], main="ACF para X1 VECM")
+```
+
+```{r, fig.cap = "Residuos X2 modelo VECM para datos simulados de 1000 observaciones. \\label{resid_vecsim1000x2}"}
+par(mfrow=c(2,1))
+plot(vecm_datossim$residuals[,2], main="Residuos para X2 VECM", ylab="Residuos")
+acf(vecm_datossim$residuals[,2], main="ACF para X2 VECM")
+```
+
+Ahora, vamos a estimar estos coeficientes mediante el método bayesiano. La librería `bvartools` permite estimar modelos BVECM. Con la función `gen_vec()` se crea el objeto de clase *BVEC* donde se introduce la estructura del modelo que se quiere estimar (número de retardos, parte determinista, iteraciones del muestreador y número de burnin). Después, se introduce la función `add_priors()` donde se añaden las a prioris al objeto de tipo *BVEC*. En este caso, se van a utilizar distribuciones a priori no informativas para ver qué tal resultados se obtienen. Después de crear el objeto *BVEC* con las a prioris definidas, se puede utilizar la función `draw_posterior()` para obtener las estimaciones a posteriori. En este caso, se ha desarrollado un código específico para la estimación a partir un ejemplo que hay dentro de los ejemplos que contiene la librería. Se ha hecho esto porque la estimación a posteriori con la función `draw_posterior()` tardaba demasiado, y, teniendo en cuenta que más adelante se va a realizar un walk forward validantion, esto hacía que fuese computacionalmente muy costoso de hacer con la función `draw-posterior()`.
+
+```{r}
+library(bvartools)
+
+datos_VEC <- ts(datos_VEC)
+data <- gen_vec(datos_VEC, p = 3, r=1, iterations = 5000, burnin = 2500)
+data <- add_priors(data,
+                   coint = list(v_i = 0, p_tau_i = 1),
+                   coef = list(v_i = 0, v_i_det = 0),
+                   sigma = list(df = 0, scale = .0001))
+```
+
+```{r}
+# Reset random number generator for reproducibility
+set.seed(100)
+
+# Obtain data matrices
+y <- t(data$data$Y)
+w <- t(data$data$W)
+x <- t(data$data$X)
+
+r <- data$model$rank # Set rank
+
+tt <- ncol(y) # Number of observations
+k <- nrow(y) # Number of endogenous variables
+k_w <- nrow(w) # Number of regressors in error correction term
+k_x <- nrow(x) # Number of differenced regressors and unrestrictec deterministic terms
+k_gamma <- k * k_x # Total number of non-cointegration coefficients
+
+k_alpha <- k * r # Number of elements in alpha
+k_beta <- k_w * r # Number of elements in beta
+
+# Priors
+a_mu_prior <- data$priors$noncointegration$mu # Prior means
+a_v_i_prior <- data$priors$noncointegration$v_i # Inverse of the prior covariance matrix
+
+v_i <- data$priors$cointegration$v_i
+p_tau_i <- data$priors$cointegration$p_tau_i
+
+sigma_df_prior <- data$priors$sigma$df # Prior degrees of freedom
+sigma_scale_prior <- data$priors$sigma$scale # Prior covariance matrix
+sigma_df_post <- tt + sigma_df_prior # Posterior degrees of freedom
+
+# Initial values
+beta <- matrix(0, k_w, r)
+beta[1:r, 1:r] <- diag(1, r)
+
+sigma_i <- diag(1 / .0001, k)
+
+g_i <- sigma_i
+
+iterations <- data$model$iterations # Number of iterations of the Gibbs sampler
+burnin <- data$model$burnin # Number of burn-in draws
+draws <- iterations + burnin # Total number of draws
+
+# Data containers
+draws_alpha <- matrix(NA, k_alpha, iterations)
+draws_beta <- matrix(NA, k_beta, iterations)
+draws_pi <- matrix(NA, k * k_w, iterations)
+draws_gamma <- matrix(NA, k_gamma, iterations)
+draws_sigma <- matrix(NA, k^2, iterations)
+
+# Start Gibbs sampler
+for (draw in 1:draws) {
+  
+  # Draw conditional mean parameters
+  temp <- post_coint_kls(y = y, beta = beta, w = w, x = x, sigma_i = sigma_i,
+                         v_i = v_i, p_tau_i = p_tau_i, g_i = g_i,
+                         gamma_mu_prior = a_mu_prior,
+                         gamma_v_i_prior = a_v_i_prior)
+  alpha <- temp$alpha
+  beta <- temp$beta
+  Pi <- temp$Pi
+  gamma <- temp$Gamma
+  
+  # Draw variance-covariance matrix
+  u <- y - Pi %*% w - matrix(gamma, k) %*% x
+  sigma_scale_post <- solve(tcrossprod(u) + v_i * alpha %*% tcrossprod(crossprod(beta, p_tau_i) %*% beta, alpha))
+  sigma_i <- matrix(rWishart(1, sigma_df_post, sigma_scale_post)[,, 1], k)
+  sigma <- solve(sigma_i)
+  
+  # Update g_i
+  g_i <- sigma_i
+  
+  # Store draws
+  if (draw > burnin) {
+    draws_alpha[, draw - burnin] <- alpha
+    draws_beta[, draw - burnin] <- beta
+    draws_pi[, draw - burnin] <- Pi
+    draws_gamma[, draw - burnin] <- gamma
+    draws_sigma[, draw - burnin] <- sigma
+  }
+}
+```
+
+```{r}
+#Sacamos la estimación de los coeficientes de cointegración
+beta <- apply(t(draws_beta) / t(draws_beta)[, 1], 2, mean) # Obtain means for every row
+beta <- matrix(beta, k_w) # Transform mean vector into a matrix
+beta <- round(beta, 3) # Round values
+dimnames(beta) <- list(dimnames(w)[[1]], NULL) # Rename matrix dimensions
+
+#beta
+```
+
+```{r}
+knitr::kable(beta, caption = "Estimación relación de largo plazo modelo BVECM(2) para datos simulados con 1000 observaciones. \\label{tab:bvecmbeta1000}")
+```
+
+```{r}
+# Number of non-deterministic coefficients
+k_nondet <- (k_x - 0) * k
+
+# Generate bvec object
+bvec_est <- bvec(y = data$data$Y,
+                 w = data$data$W,
+                 x = data$data$X[, 1:4],
+                 x_d = data$data$X[, -(1:4)],
+                 Pi = draws_pi,
+                 r = 1,
+                 Gamma = draws_gamma[1:k_nondet,],
+                 Sigma = draws_sigma)
+
+sum_bvecfit <- summary(bvec_est)
+```
+
+```{r}
+knitr::kable(sum_bvecfit$coefficients$means[, c(-2)], caption = "Estimación modelo BVECM(2) para datos simulados con 1000 observaciones. \\label{tab:bvecmfit1000}")
+```
+
+```{r}
+knitr::kable(sum_bvecfit$sigma$means, caption = "Estimación matriz var-cov modelo BVECM(2) para datos simulados con 1000 observaciones. \\label{tab:bvecmcov1000}")
+```
+
+La estimación de la relación de largo plazo es muy buena ($-1.497$ frente a $-1.5$ real) igual que con el método frecuentista. En cuanto a los términos de corrección de equilibrio, los IC al 95% indican que son distintos de cero y toman valores muy cercanos a los reales. Todos los coeficientes autorregresivos estimados son significativos según indica el IC al 95% y se ajustan muy bien a la relación verdadera entre las variables que se ha usado para simular los datos. 
+
+En cuanto a la estimación de la matriz de varianza-covarianzas, las estimaciones para $\sigma^2_{x1}$ y $\sigma^2_{x2}$ contienen al 1 en su IC al 95% y su valor estimado es muy cercano. En cuanto a las covarianzas, los intervalos de confianza incluyen al 0 al 95% por lo que recogen el verdadero valor.
+
+Aún habiendo incorporado distribuciones a prioris no informativas, los resultados son muy acertados. Esto se debe a la cantidad de datos que se han usado para estimar el modelo. Como se han usado 1000 datos, éstos tienen mucho peso en la estimación de la a posteriori y por ello aún incorporando distribuciones a priori no informativas los resultados son igual de buenos que con el método frecuentista. Cabe destacar que el tiempo de computación es significativamente mayor.
+
+```{r, fig.cap = "Muestreo de beta modelo BVECM para datos simulados de 1000 observaciones. \\label{muestreo_beta1000}"}
+betas_bvec1000 <- t(draws_beta) / t(draws_beta)[, 1]
+par(mfrow=c(2,1))
+plot(betas_bvec1000[,2], type="l", main="Draws beta posteriori", ylab="draws")
+plot(density(betas_bvec1000[,2]), main="Densidad Beta posteriori")
+abline(v=-1.5, col="blue")
+abline(v=mean(betas_bvec1000[,2]), col="green")
+```
+
+Ahora, vamos a estimar estos modelos para el conjunto de datos simulado con 100 observaciones. Hay que destacar que este conjunto de datos también sigue la estructura definida en \ref{eq:simvec}.
+
+```{r}
+set.seed(100)
+
+innov<-rmnorm(100, varcov=diag(2))
+Bvecm <- rbind(c(-0.3, 0.2,-0.3, 0.2, 0.1), c(0.2, 0.4, -0.2, 0.1, 0.25))
+datos_VEC100 <- VECM.sim(B=Bvecm,  n=100, beta=1.5, lag=2,include="none", innov=innov)
+
+vecm_datossim100 = VECM(datos_VEC100, lag = 2, include = "none", estim = "ML")
+sum_vecfit100 <- summary(vecm_datossim100)
+```
+
+```{r}
+knitr::kable(coefB(vecm_datossim100), caption = "Estimación relación largo plazo modelo VECM(2) para datos simulados con 100 observaciones. \\label{tab:betavecmfit100}")
+```
+
+```{r}
+knitr::kable(sum_vecfit100$coefficients, caption = "Estimación modelo VECM(2) para datos simulados con 100 observaciones. \\label{tab:vecmfit100}")
+```
+
+```{r}
+knitr::kable(sum_vecfit100$sigma, caption = "Estimación matriz var-cov modelo VECM(2) para datos simulados con 100 observaciones. \\label{tab:vecmfitcov100}")
+```
+
+La estimación de la relación de largo plazo es bastante acertada al igual que los términos de corrección de equilibrio. Para la relación autorregresiva, las estimaciones del primer retardo son bastante buenas pero para el segundo retardo fallan bastante.
+
+```{r, fig.cap = "Residuos X1 modelo VECM para datos simulados de 100 observaciones. \\label{resid_vecsim100x1}"}
+par(mfrow=c(2,1))
+plot(vecm_datossim100$residuals[,1], main="Residuos para X1 VECM", ylab="Residuos")
+acf(vecm_datossim100$residuals[,1], main="ACF para X1 VECM")
+```
+
+```{r, fig.cap = "Residuos X2 modelo VECM para datos simulados de 100 observaciones. \\label{resid_vecsim100x2}"}
+par(mfrow=c(2,1))
+plot(vecm_datossim100$residuals[,2], main="Residuos para X2 VECM", ylab="Residuos")
+acf(vecm_datossim100$residuals[,2], main="ACF para X2 VECM")
+```
+
+Los residuos muestran que el modelo está bien estimado. Las discrepancias entre los coeficientes estimados y los valores reales aparecen principalmente porque $n$ no es suficientemente grande como para que mediante un método frecuentista las estimaciones sean precisas.
+
+Vamos a ver cómo funciona el método bayesiano.
+
+```{r}
+datos_VEC100 <- ts(datos_VEC100)
+data100 <- gen_vec(datos_VEC100, p = 3, r=1, iterations = 5000, burnin = 2500)
+data <- add_priors(data100,
+                   coint = list(v_i = 0, p_tau_i = 1),
+                   coef = list(v_i = 0, v_i_det = 0),
+                   sigma = list(df = 0, scale = .0001))
+
+set.seed(100)
+
+# Obtain data matrices
+y <- t(data$data$Y)
+w <- t(data$data$W)
+x <- t(data$data$X)
+
+r <- data$model$rank # Set rank
+
+tt <- ncol(y) # Number of observations
+k <- nrow(y) # Number of endogenous variables
+k_w <- nrow(w) # Number of regressors in error correction term
+k_x <- nrow(x) # Number of differenced regressors and unrestrictec deterministic terms
+k_gamma <- k * k_x # Total number of non-cointegration coefficients
+
+k_alpha <- k * r # Number of elements in alpha
+k_beta <- k_w * r # Number of elements in beta
+
+# Priors
+a_mu_prior <- data$priors$noncointegration$mu # Prior means
+a_v_i_prior <- data$priors$noncointegration$v_i # Inverse of the prior covariance matrix
+
+v_i <- data$priors$cointegration$v_i
+p_tau_i <- data$priors$cointegration$p_tau_i
+
+sigma_df_prior <- data$priors$sigma$df # Prior degrees of freedom
+sigma_scale_prior <- data$priors$sigma$scale # Prior covariance matrix
+sigma_df_post <- tt + sigma_df_prior # Posterior degrees of freedom
+
+# Initial values
+beta <- matrix(0, k_w, r)
+beta[1:r, 1:r] <- diag(1, r)
+
+sigma_i <- diag(1 / .0001, k)
+
+g_i <- sigma_i
+
+iterations <- data$model$iterations # Number of iterations of the Gibbs sampler
+burnin <- data$model$burnin # Number of burn-in draws
+draws <- iterations + burnin # Total number of draws
+
+# Data containers
+draws_alpha <- matrix(NA, k_alpha, iterations)
+draws_beta <- matrix(NA, k_beta, iterations)
+draws_pi <- matrix(NA, k * k_w, iterations)
+draws_gamma <- matrix(NA, k_gamma, iterations)
+draws_sigma <- matrix(NA, k^2, iterations)
+
+# Start Gibbs sampler
+for (draw in 1:draws) {
+  
+  # Draw conditional mean parameters
+  temp <- post_coint_kls(y = y, beta = beta, w = w, x = x, sigma_i = sigma_i,
+                         v_i = v_i, p_tau_i = p_tau_i, g_i = g_i,
+                         gamma_mu_prior = a_mu_prior,
+                         gamma_v_i_prior = a_v_i_prior)
+  alpha <- temp$alpha
+  beta <- temp$beta
+  Pi <- temp$Pi
+  gamma <- temp$Gamma
+  
+  # Draw variance-covariance matrix
+  u <- y - Pi %*% w - matrix(gamma, k) %*% x
+  sigma_scale_post <- solve(tcrossprod(u) + v_i * alpha %*% tcrossprod(crossprod(beta, p_tau_i) %*% beta, alpha))
+  sigma_i <- matrix(rWishart(1, sigma_df_post, sigma_scale_post)[,, 1], k)
+  sigma <- solve(sigma_i)
+  
+  # Update g_i
+  g_i <- sigma_i
+  
+  # Store draws
+  if (draw > burnin) {
+    draws_alpha[, draw - burnin] <- alpha
+    draws_beta[, draw - burnin] <- beta
+    draws_pi[, draw - burnin] <- Pi
+    draws_gamma[, draw - burnin] <- gamma
+    draws_sigma[, draw - burnin] <- sigma
+  }
+}
+
+```
+
+```{r}
+beta <- apply(t(draws_beta) / t(draws_beta)[, 1], 2, mean) # Obtain means for every row
+beta <- matrix(beta, k_w) # Transform mean vector into a matrix
+beta <- round(beta, 3) # Round values
+dimnames(beta) <- list(dimnames(w)[[1]], NULL) # Rename matrix dimensions
+
+#beta
+```
+
+```{r}
+knitr::kable(beta, caption = "Estimación relación de largo plazo modelo BVECM(2) para datos simulados con 100 observaciones. \\label{tab:bvecmbeta100}")
+```
+
+```{r}
+k_nondet <- (k_x - 0) * k
+
+# Generate bvec object
+bvec_est100 <- bvec(y = data$data$Y,
+                 w = data$data$W,
+                 x = data$data$X[, 1:4],
+                 x_d = data$data$X[, -(1:4)],
+                 Pi = draws_pi,
+                 r = 1,
+                 Gamma = draws_gamma[1:k_nondet,],
+                 Sigma = draws_sigma)
+
+sum_bvecfit100 <- summary(bvec_est100)
+```
+
+```{r}
+knitr::kable(sum_bvecfit100$coefficients$means[, c(-2)], caption = "Estimación modelo BVECM(2) para datos simulados con 100 observaciones. \\label{tab:bvecmfit100}")
+```
+
+```{r}
+knitr::kable(sum_bvecfit100$sigma$means, caption = "Estimación matriz var-cov modelo BVECM(2) para datos simulados con 100 observaciones. \\label{tab:bvecmcov100}")
+```
+
+La relación a largo plazo se estima con bastante precisión, igual que el método frecuentista, y lo mismo pasa con los términos de corrección de equilibrio. En cuanto a los coeficientes autorregresivos, pasa lo mismo que con el método frecuentista: para el primer retardo las estimaciones son bastante buenas, pero para el segundo retardo están lejos del valor real.
+
+```{r, fig.cap = "Muestreo de beta modelo BVECM para datos simulados de 100 observaciones. \\label{muestreo_beta100}"}
+betas_bvec100 <- t(draws_beta) / t(draws_beta)[, 1]
+par(mfrow=c(2,1))
+plot(betas_bvec100[,2], type="l", main="Draws beta posteriori", ylab="draws")
+plot(density(betas_bvec100[,2]), main="Densidad Beta posteriori")
+abline(v=-1.5, col="blue")
+abline(v=mean(betas_bvec100[,2]), col="green")
+```
+
+Por último, vamos a estimar estos modelos para los datos macroeconómicos de LIBOR y OVERNIGHT. Después de estimar varios modelos con diferente números de retardos, el modelo que menor AIC tiene incorpora 5 retardos, una constante en la relación de largo plazo y sin otros términos deterministas en la parte de largo plazo o en la de corto plazo.
+
+```{r}
+libor_overnight <- readxl::read_excel("libor_overnight.xlsx")
+libor_overnight <- ts(libor_overnight)
+
+vecm_liborover = VECM(libor_overnight, lag = 5, include = "none", estim = "ML", LRinclude = "const")
+sum_vecmfitlibor <- summary(vecm_liborover)
+```
+
+```{r}
+knitr::kable(coefB(vecm_liborover), caption = "Estimación relación largo plazo modelo VECM(5) para datos de LIBOR y OVERNIGHT. \\label{tab:betavecmfitlibor}")
+```
+
+```{r}
+knitr::kable(t(sum_vecmfitlibor$coefficients), caption = "Estimación del modelo VECM(5) para datos de LIBOR y OVERNIGHT. \\label{tab:vecmfitlibor}")
+```
+
+```{r}
+knitr::kable(sum_vecmfitlibor$sigma, caption = "Estimación matriz var-cov modelo VECM(5) para datos de LIBOR y OVERNIGHT. \\label{tab:vecmfitcovlibor}")
+```
+
+La estimación de los coeficientes sugiere que la relación a largo plazo para el modelo de LIBOR no es significativa ya que su término de corrección de equilibrio es cero. En cambio, la relación a largo plazo para OVERNIGHT sí es significativa, tanto para su término de corrección de equilibrio como para $\beta$. El modelo estimado sugiere que hay una relación a largo plazo positiva entre las variables. En cuanto a la relación de corto plazo, recogida en los términos autorregresivos, solo son significativos el primer, tercer y cuarto retardo de OVERNIGHT por lo que el modelo sugiere que LIBOR está relacionado a largo plazo con OVERNIGHT pero que no le influye en el corto plazo. 
+
+En cambio, la relación estimada para LIBOR es totalmente diferente. Según los coeficientes que se han estimado, el modelo sugiere que no existe relación a largo plazo pero sí hay a corto plazo con retardos significativos 5 periodos.
+
+Los residuos recogidos en \ref{resid_libor} y \ref{resid_overnight} sugieren que el modelo está bien estipulado.
+
+```{r, fig.cap = "Residuos de LIBOR modelo VECM. \\label{resid_libor}"}
+par(mfrow=c(2,1))
+plot(vecm_liborover$residuals[,1], main="Residuos para LIBOR VECM", ylab="Residuos")
+acf(vecm_liborover$residuals[,1], main="ACF para LIBOR VECM")
+```
+
+```{r, fig.cap = "Residuos OVERNIGHT modelo VECM. \\label{resid_overnight}"}
+par(mfrow=c(2,1))
+plot(vecm_liborover$residuals[,2], main="Residuos para OVERNIGHT VECM", ylab="Residuos")
+acf(vecm_liborover$residuals[,2], main="ACF para OVERNIGHT VECM")
+```
+
+Por otro lado, la estimación de manera bayesiana con 5 retardos, constante en la relación a largo plazo y sin otros términos deterministas es la siguiente:
+  
+```{r}
+data <- gen_vec(libor_overnight, p = 6, r=1, iterations = 5000, burnin = 2500, const = "restricted")
+data <- add_priors(data,
+                   coint = list(v_i = 0, p_tau_i = 1),
+                   coef = list(v_i = 0, v_i_det = 0),
+                   sigma = list(df = 0, scale = .0001))
+```
+
+```{r}
+# Reset random number generator for reproducibility
+set.seed(100)
+
+# Obtain data matrices
+y <- t(data$data$Y)
+w <- t(data$data$W)
+x <- t(data$data$X)
+
+r <- data$model$rank # Set rank
+
+tt <- ncol(y) # Number of observations
+k <- nrow(y) # Number of endogenous variables
+k_w <- nrow(w) # Number of regressors in error correction term
+k_x <- nrow(x) # Number of differenced regressors and unrestrictec deterministic terms
+k_gamma <- k * k_x # Total number of non-cointegration coefficients
+
+k_alpha <- k * r # Number of elements in alpha
+k_beta <- k_w * r # Number of elements in beta
+
+# Priors
+a_mu_prior <- data$priors$noncointegration$mu # Prior means
+a_v_i_prior <- data$priors$noncointegration$v_i # Inverse of the prior covariance matrix
+
+v_i <- data$priors$cointegration$v_i
+p_tau_i <- data$priors$cointegration$p_tau_i
+
+sigma_df_prior <- data$priors$sigma$df # Prior degrees of freedom
+sigma_scale_prior <- data$priors$sigma$scale # Prior covariance matrix
+sigma_df_post <- tt + sigma_df_prior # Posterior degrees of freedom
+
+# Initial values
+beta <- matrix(0, k_w, r)
+beta[1:r, 1:r] <- diag(1, r)
+
+sigma_i <- diag(1 / .0001, k)
+
+g_i <- sigma_i
+
+iterations <- data$model$iterations # Number of iterations of the Gibbs sampler
+burnin <- data$model$burnin # Number of burn-in draws
+draws <- iterations + burnin # Total number of draws
+
+# Data containers
+draws_alpha <- matrix(NA, k_alpha, iterations)
+draws_beta <- matrix(NA, k_beta, iterations)
+draws_pi <- matrix(NA, k * k_w, iterations)
+draws_gamma <- matrix(NA, k_gamma, iterations)
+draws_sigma <- matrix(NA, k^2, iterations)
+
+# Start Gibbs sampler
+for (draw in 1:draws) {
+  
+  # Draw conditional mean parameters
+  temp <- post_coint_kls(y = y, beta = beta, w = w, x = x, sigma_i = sigma_i,
+                         v_i = v_i, p_tau_i = p_tau_i, g_i = g_i,
+                         gamma_mu_prior = a_mu_prior,
+                         gamma_v_i_prior = a_v_i_prior)
+  alpha <- temp$alpha
+  beta <- temp$beta
+  Pi <- temp$Pi
+  gamma <- temp$Gamma
+  
+  # Draw variance-covariance matrix
+  u <- y - Pi %*% w - matrix(gamma, k) %*% x
+  sigma_scale_post <- solve(tcrossprod(u) + v_i * alpha %*% tcrossprod(crossprod(beta, p_tau_i) %*% beta, alpha))
+  sigma_i <- matrix(rWishart(1, sigma_df_post, sigma_scale_post)[,, 1], k)
+  sigma <- solve(sigma_i)
+  
+  # Update g_i
+  g_i <- sigma_i
+  
+  # Store draws
+  if (draw > burnin) {
+    draws_alpha[, draw - burnin] <- alpha
+    draws_beta[, draw - burnin] <- beta
+    draws_pi[, draw - burnin] <- Pi
+    draws_gamma[, draw - burnin] <- gamma
+    draws_sigma[, draw - burnin] <- sigma
+  }
+}
+```
+
+```{r}
+#Sacamos la estimación de los coeficientes de cointegración
+beta <- apply(t(draws_beta) / t(draws_beta)[, 1], 2, mean) # Obtain means for every row
+beta <- matrix(beta, k_w) # Transform mean vector into a matrix
+beta <- round(beta, 3) # Round values
+dimnames(beta) <- list(dimnames(w)[[1]], NULL) # Rename matrix dimensions
+
+#beta
+```
+
+```{r}
+knitr::kable(beta, caption = "Estimación relación de largo plazo modelo BVECM(5) para datos de LIBOR y OVERNIGHT. \\label{tab:bvecmbetalibor}")
+```
+
+```{r}
+# Number of non-deterministic coefficients
+k_nondet <- (k_x - 0) * k
+
+# Generate bvec object
+bvec_est_liborover <- bvec(y = data$data$Y,
+                           w = data$data$W,
+                           x = data$data$X[, 1:10],
+                           x_d = data$data$X[, -(1:10)],
+                           Pi = draws_pi,
+                           r = 1,
+                           Gamma = draws_gamma[1:k_nondet,],
+                           Sigma = draws_sigma)
+
+sum_bvecfitlibor <- summary(bvec_est_liborover)
+```
+
+```{r}
+knitr::kable(t(sum_bvecfitlibor$coefficients$means[, -c(2,3)]), caption = "Estimación modelo BVECM(5) para datos de LIBOR y OVERNIGHT \\label{tab:bvecmfitLIBOR}")
+```
+
+```{r}
+knitr::kable(sum_bvecfitlibor$sigma$means, caption = "Estimación matriz var-cov modelo BVECM(5) para datos de LIBOR y OVERNIGHT. \\label{tab:bvecmcovLIBOR}")
+```
+
+```{r, fig.cap = "Muestreo de beta modelo BVECM para los datos de LIBOR y OVERNIGHT. \\label{muestreo_betaLIBOROVER}"}
+betas_bvecliborover <- t(draws_beta) / t(draws_beta)[, 1]
+par(mfrow=c(2,1))
+plot(betas_bvecliborover[,2], type="l", main="Draws beta posteriori", ylab="draws")
+plot(density(betas_bvecliborover[,2]), main="Densidad Beta posteriori")
+```
+
+La figura \ref{muestreo_betaLIBOROVER} contiene los draws y densidad a posteriori de $\beta$ para los datos de LIBOR y OVERNIGHT.
+
+Se puede ver como las estimaciones con el método bayesiano son muy parecidas a las estimaciones frecuentistas, y sugiere también que OVERNIGHT solo depende de su pasado en el corto plazo, pero se ve influenciada por LIBOR en el largo plazo.
+
+## Análisis de la capacidad predictiva
+
+Por último, se presentan los resultados de la capacidad predictiva de cada método. Para analizar la capacidad predictiva, se va a realizar un *walk-forward validation*. Se parte de un modelo inicial estimado con un número (normalmente pequeño) de observaciones $t$ y se predice el valor en $t+1$. Una vez estimado el valor, se calcula el error cuadrático de la estimación y esa observación pasa a a formar parte de los datos con los que se estimará otra vez el modelo. Se repite este proceso hasta haber recorrido todos los datos que se tengan. Al final se obtiene el error de predicción como la media de los errores cuadráticos de cada observación predicha. 
+
+Como hemos visto en el apartado anterior, estimar los modelos de forma bayesiana mediante MCMC es computacionalmente mucho más costoso que de forma frecuentista (más de 100 veces más costoso). Por esto, ha sido necesario modificar un poco el algoritmo de *walk-forward validation* para que sea viable con los recursos informáticos que dispongo. 
+
+Tanto para los modelos BVAR como para los BVECM, la estimación del modelo se ha de hacer con 50000 iteraciones y 25000 *burning* para asegurar la convergencia. Cada modelo que se estima tarda entre 45 segundos y 70 segundos. Además, la predicción de observaciones también es más lenta que para los modelos frecuentistas por lo que en general, estamos hablando que estimar un modelo y hacer una predicción tarda más o menos 1 minuto y medio. Hacer esto 1000 veces para 4 conjuntos de datos diferentes supondría 100h de cómputo. 
+
+La estrategia que se ha decidido tomar para reducir el tiempo de cómputo ha sido la siguiente: El modelo inicial contendrá un número de observaciones iniciales tal que el número de iteraciones del *walk-forward validation* sea de 30 bajo la condición de que si las series son diarias se predirá a un horizonte temporal de $t+30$, y si son trimestrales de $t+4$ en vez de ser $t+1$ el horizonte temporal.
+
+Esta decisión se ha tomado para que haya 30 estimaciones de *MRSE* y se pueda aproximar a una distribución normal para sacar intervalos de confianza, y para que el tiempo de cómputo por cada conjunto de datos no sea superior a 1 hora (4 horas en total). Además, tiene sentido usar un horizonte temporal de $t+30$ para series diarias y $t+4$ para las trimestrales por que lo que se está haciendo es estimar a un mes vista para las series diarias, y a un año vista en las series trimestrales.
+
+```{r}
+test_varsim <- data.frame("X1" = c(1.22794, 1.24198), "X2" = c(1.23896, 1.24056), row.names = c("VAR", "BVAR"))
+test_usmacro <- data.frame("Inflación" = c(0.39388, 0.39598), "Desempleo" = c(0.21507, 0.2135), row.names = c("VAR", "BVAR"))
+test_vecsim <- data.frame("X1" = c(5.408236, 5.407065), "X2" = c(3.818258, 3.815903), row.names = c("VECM", "BVECM"))
+test_liborover <- data.frame("LIBOR" = c(0.0739661, 0.07840355), "OVERNIGHT" = c(0.0638624, 0.07123837), row.names = c("VECM", "BVECM"))
+```
+
+La tabla \ref{tab:test_varsim} muestra la media de *MSRE* para las 30 iteraciones del algoritmo *walk-forward validation* para obtener el error de predicción de cada modelo para cada variable. Se puede apreciar que la capacidad predictiva del modelo bayesiano y el frecuentista es igual de buena. Esto se debe principalmente a que el *walk-forward* se ha iniciado con 100 observaciones y hay un total de 1000 datos en el dataset por lo que los datos tienen mucho peso en la distribción a posteriori dado la gran cantidad de datos. 
+
+```{r}
+kable(test_varsim, format = "latex", booktabs = T, caption = "Media de MSRE en 30 iteraciones con datos simulados. \\label{tab:test_varsim}") %>%
+  kable_styling(font_size = 11) %>%
+  add_header_above(c(" ", "Variable" = 2))
+
+```
+
+En la tabla \ref{tab:test_usmacro}, tenemos los resultados del *walk-forward validation* para los datos macroeconómicos de inflación y desempleo en Estados Unidos desde 1959-2007. Las series de este conjunto de datos son trimestrales por lo que el algoritmo se ha configurado de tal forma que en cada iteración prediga un periodo temporal de $t + 4$ que viene a ser un año. El algoritmo se ha iniciado con 75 observaciones de 195 en total. De nuevo, como el tamaño de los datos es elevado, estos tienen mayor peso que las distribuciones a priori y los resultados sobre la capacidad predictiva indican que los modelos predicen igual de bien los valores futuros en ambas series.
+
+```{r}
+kable(test_usmacro, format = "latex", booktabs = T, caption = "Media de MSRE en 30 iteraciones para datos macroeconómicos USA 1959-2007. \\label{tab:test_usmacro}") %>%
+  kable_styling(font_size = 11) %>%
+  add_header_above(c(" ", "Variable" = 2))
+```
+
+En cuanto a los conjuntos de datos con series cointegradas, para el conjunto de datos que ha sido simulado, la tabla \ref{tab:test_vecsim} refleja la capacidad predictiva del modelo bayesiano y frecuentista al realizar un *walk-forward validation* con predicciones a $t+30$. El conjunto de datos tiene 1000 observaciones y se ha iniciado el algoritmo con 100. Una vez más, los resultados son prácticamente idénticos debido a que el peso de los datos es muy alto a la hora de sacar las estimaciones a posteriori.
+
+```{r}
+kable(test_vecsim, format = "latex", booktabs = T, caption = "Media de MSRE en 30 iteraciones para datos simulados. \\label{tab:test_vecsim}") %>%
+  kable_styling(font_size = 11) %>%
+  add_header_above(c(" ", "Variable" = 2))
+```
+
+Por último, para las series cointegradas de LIBOR y OVERNIGHT, la tabla \ref{tab:test_liborover} recoge el error de predicción para cada serie según cada tipo de modelo a través de un *walk-forward validation*, con periodo temporal de predicción de $t+30$ en cada iteración. Aún hay pequeñas diferencias, pero no llegan a ser significativas y los modelos presentan una capacidad predictiva similar para este conjunto de datos reales. 
+
+```{r}
+kable(test_liborover, format = "latex", booktabs = T, caption = "Media de MSRE en 30 iteraciones para datos de LIBOR y OVERNIGHT. \\label{tab:test_liborover}") %>%
+  kable_styling(font_size = 11) %>%
+  add_header_above(c(" ", "Variable" = 2))
+```
+

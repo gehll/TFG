@@ -1,0 +1,121 @@
+---
+author: "Nombre Completo Autor"
+date: "27/10/2017"
+documentclass: book
+forprint: true  # true: imprime a dos caras, false: libro digital
+fontsize: 12pt # 10pt,11pt
+geometry: margin = 2.5cm 
+bibliography: ["bib/library.bib", "bib/paquetes.bib"]
+# metodobib -> true: natbib (descomentar: citation_package: natbib) 
+#           -> false: pandoc (comentar: citation_package: natbib)
+metodobib: true
+#natbib: plainnat, abbrvnat, unsrtnat
+biblio-style: "plainnat"
+#Método 2 (pandoc): descomente una línea de las 2 siguientes en caso de usarlo
+csl: methods-in-ecology-and-evolution.csl      # no numera mejor en las citas
+#csl: acm-sig-proceedings-long-author-list.csl  # numera peor en las citas
+link-citations: yes
+output: 
+  pdf_document:
+    keep_tex: no
+    number_sections: yes
+    citation_package: natbib  # comentado usa: pandoc-citeproc
+    #toc: yes
+    fig_caption: yes
+    template: latex/templateMemoriaTFE.tex
+    includes:
+      #before_body: portadas/latex_paginatitulo_modTFE.tex
+      #in_header: latex/latex_preambulo.tex
+      #after_body: latex/latex_antes_enddoc.tex
+---
+
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.path = 'figurasR/',
+                      echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.pos="H",fig.align="center",out.width="95%",
+                      cache=FALSE)
+
+```
+
+
+<!-- \setcounter{chapter}{2} -->
+<!-- \setcounter{chapter}{2} escribir 2 para capítulo 3  -->
+<!-- \pagenumbering{arabic} -->
+
+\ifdefined\ifprincipal
+\else
+\setlength{\parindent}{1em}
+\pagestyle{fancy}
+\setcounter{tocdepth}{4}
+\tableofcontents
+<!-- \nocite{*} -->
+\fi
+
+\ifdefined\ifdoblecara
+\fancyhead{}{}
+\fancyhead[LE,RO]{\scriptsize\rightmark}
+\fancyfoot[LO,RE]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[LE,RO]{\footnotesize\thepage}
+\else
+\fancyhead{}{}
+\fancyhead[RO]{\scriptsize\rightmark}
+\fancyfoot[LO]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[RO]{\footnotesize\thepage}
+\fi
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+
+# Introducción
+
+Este trabajo de fin de grado trata de analizar los beneficios que puede aportar estimar modelos vectoriales autorregresivos y de corrección de equilibrio de manera bayesiana frente a métodos frecuentistas tradicionales.
+
+Los modelos vectoriales autorregresivos (VAR) fueron introducidos por Christopher Sims (1980) y son una extensión de los modelos autorregresivos univariantes hacia modelos dinámicos multivariantes. Son uno de los modelos más populares, flexibles y fáciles de implementar para el análisis de series temporales multivariantes. Los modelos VAR han destacado principalmente en economía y finanzas para entender la relación entre las diferentes variables, y, también, para hacer predicciones (Stock y Watson 2001). Estos modelos son muy flexibles porque se pueden construir en función de otras series temporales. Esto significa que no es necesario tener un modelo estructural adecuado para una serie de interés, sino que se crea un modelo en el que una serie es explicada por el comportamiento de otras series y su propio pasado. Esto hace que lo más importante a la hora de crear modelos de este tipo es elegir bien las series que se van a relacionar y los retardos de cada una.
+
+Aparte de economía y finanzas, los modelos VAR son  muy utilizados en el ámbito político para analizar las causas de ciertos escenarios macroeconómicos, así como para medir los impactos de las decisiones políticas. Estas son algunas de las aplicaciones más comunes de los modelos VAR, pero en la realidad, se aplican en múltiples campos con fines muy diferentes. Algunos ejemplos son: 
+
+- Medicina: Para entender cómo están relacionados las signos vitales de pacientes con problemas cardiorespiratorios (Bose, Eliezer; Hravnak, Marilyn; Sereika, Susan M 2017).
+- Epidemiología: Para entender cómo los riesgos de infección del COVID-19 interactúan entre diferentes grupos de edad (Yu, Xinhua 2020).
+- Biología: Cómo modelar las redes de expresiones genéticas (Fujita, A., Sato, J.R., Garay-Malpartida, H.M. et al. 2007).
+
+En definitiva, estos modelos son muy comunes y se pueden aplicar a múltiples tipos de series temporales donde el objetivo sea explicar el comportamiento de una a través de su pasado y del de otras variables.
+
+En cuanto a los modelos de corrección de equilibrio, estos modelos son una extensión de los modelos autorregresivos. La diferencia es que estos modelos recogen la relación de largo plazo entre dos variables además de las relaciones contemporáneas. Primero, Sargan (1964) desarrolló la metodología para los modelos uniecuacionales, y, más adelante, casi a la vez que los VAR, se desarrolló la metodología para los VECM.
+
+Los modelos VECM suelen ser muy útiles ya que es muy común que al menos un par de series estén relacionadas en el largo plazo (Koop, Strachan, van Dijk y Villani 2005). Si no se recoge esta relación, se pierde información.
+
+Los ejemplos en macroeconomía y finanzas abundan, como el consumo y la renta permanente, los precios y los dividendos en el mercado de valores y las series de tipos de interés a corto y largo plazo (Koop, Strachan, van Dijk y Villani 2005). La globalización ha causado que muchas series macroeconómicas de diferentes paises estén relacionadas y se puedan aplicar estos modelos. También, como los índices macroeconómicos tienen gran influencia en los mercados bursátiles, hay series macroeconómicas relacionadas en el largo plazo con series de mercados financieros. Algunas aplicaciones más de actualidad son:
+
+- Predicción del retorno de Bitcoin (Liang 2021)
+- Análisis de la relación entre el índice de precios percibidos por el agricultor (PIR), Índice de precios pagados por los agricultores (PIP) y la relación de intercambio de los agricultores (FTT) para tratar de conocer el comportamiento de (FTT) si hay un shock en las variables PIR y PIP (Mustofa Usman; Dhia Fadhilah Fatin; M. Yusuf S. Barusman; Faiz A. M. Elfaki; Widiarti 2017).
+
+Tanto los modelos VAR como los modelos VECM se pueden estimar también mediante métodos bayesianos. En general se usan métodos de simulación basados en cadenas de Markov por medio de la metodología MCMC. Desde finales de los 90 hasta mitad de los 2000, se empezaron a aplicar métodos bayesianos a los modelos autorregresivos y de corrección de equilibrio. Trabajos como los de Bauwens y Lubrano (1996), Bauwens y Giot (1998), Strachan (2003), Strachan y Inder (2004) son algunos de los ejemplos.
+
+Los modelos VAR y VECM pueden llegar a tener muchos parámetros, esto hace que los errores estándar de las estimaciones sean grandes. Uno de los beneficios de estimar estos modelos con técnicas bayesianas es que se pueden mejorar las estimaciones si se incluye información a priori. Otra ventaja, es que se obtienen distribuciones de probabilidad para cada uno de los parámetros, independientemente del tamaño de la muestra. Estas propiedas de los métodos bayesianos son muy buenas pero depende de la información a priori. Se han propuesto varias distribuciones a priori a lo largo de los años que serán discutidas más adelante.
+
+En este trabajo de fin de grado, lo que se pretende es entender cuáles son las diferencias a la hora de estimar estos modelos de manera frecuentista y de manera bayesiana, así como analizar las ventajas e inconvenientes de cada método para la inferencia y predicción. Para hacer esto, se van a aplicar los diferentes modelos primero a unos datos simulados para comparar las estimaciones de los parámetros con los *reales*, y después a dos conjuntos de series temporales reales diferentes. Uno de los conjuntos contiene la tasa de inflación para Estados Unidos y el desempleo para cada trimestre desde 1959 hasta 2007. Los datos están dentro del paquete `bvartools`. El otro conjunto de datos con el que se va a trabajar recoge los tipos de cambio (swaps) a 9 meses, denominados OVERNIGHT, y el LIBOR a 12 en la eurozona. En la simulación de datos se va a simular un data set grande y otro pequeño para cada tipo de modelo. Se va a hacer esto para comparar las estimaciones cuando hay pocos datos (los modelos bayesianos suelen tener mejor resultado) y cuando hay muchos datos (los datos suelen tener más peso que las a priori por lo que las estimaciones deberían ser bastante similares en teoría).
+
+Para la estimación de los modelos con métodos bayesianos se van a utilizar las librerías `bvartools` y `BVAR`. Para la estimación de los modelos frecuentistas se usarán las librerías `vars`, `tsDyn`, `tseries` y `urca` principalmente.
+
+## Objetivos generales y específicos
+
+Este trabajo pretende exponer las ventajes e inconvenientes de estimar modelos vectoriales autorregresivos y de corrección de equilibrio de manera bayesiana frente a un enfoque frecuentista.
+
+Los objetivos generales son:
+
+- Explorar y entender las diferencias entre la estimación bayesiana y frecuentista para modelos autorregresivos y de corrección de equilibrio.
+- Comprender las limitaciones que tienen los enfoques bayesianos en los modelos de corrección de equilibrio.
+- Comparar las estimaciones de los parámetros entre el método frecuentista y bayesiano.
+- Comparar la capacidad predictiva de estos modelos estimados por métodos bayesianos frente a la forma frecuentista
+
+En cuanto a los objetivos específicos:
+
+- Entender las motivaciones por las que una estimación bayesiana de estos modelos puede ser beneficiosa.
+- Exponer los problemas que pueden surgir a la hora de hacer la estimación de forma bayesiana.
+- Determinar unas distribuciones a priori adecuadas para los modelos.
+- Comparar la inferencia de los parámetros de los modelos BVECM frente a los VECM y de los VAR frente a los BVAR.
+- Analizar la capacidad predictiva de los diferentes modelos.

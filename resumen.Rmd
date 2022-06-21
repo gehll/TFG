@@ -1,0 +1,15 @@
+---
+output: pdf_document
+---
+
+Este trabajo de fin de grado es un trabajo de investigación sobre métodos bayesianos para modelos autorregresivos y de corrección de equilibrio. El objetivo principal del trabajo es entender las motivaciones para aplicar métodos bayesianos para la estimación de este tipo de modelos, sus ventajas y desventajas frente a los métodos frecuentistas tradicionales y analizar las diferencias en la estimación de los parámetros y la capacidad predictiva de cada uno.
+
+El principal escenario en el que se eligiría un método bayesiano de estimación frente a uno frecuentista sería el caso en el que hay numerosos predictores con varios retardos a incluir en el modelo lo que genera una sobreparametrización que resulta en estimaciones inestables y desviaciones estándar muy altas mediante el método frecuentista. Otra ventaja es que se pueden obtener distribuciones de probabilidad para cada parámetros estimado independientemente del tamaño muestral que se tenga. 
+
+Aún así, los métodos bayesiano tienen sus inconvenientes, especialmente la elección de la información a priori. Si no se elige bien esta información y se tienen pocos datos las estimaciones pueden ser muy malas, y, además, según la a priori que se elija se puede llegar a obtener una a posteriori impropia. Estos problemas, además del problema de estimación de la relación de largo plazo en los modelos de corrección de equilibrio se abordan en el trabajo, y se proponen soluciones basadas en la literatura que generan estimaciones más robustas y computacionalmente eficientes. 
+
+Para comparar las estimaciones y la capacidad predictiva de cada método, se analizan 6 datasets distintos. 3 de ellos contienen variables no cointegradas y los otros 3 variables cointegradas. En cada grupo, hay un dataset real y dos dataset simulados siendo uno de 1000 observaciones y otro de 100. De esta forma, con los datos simulados se pueden comparar las estimaciones de cada método con los valores reales de los parámetros. Los dataset reales se usan para comparar estimaciones pero, además, se usan para comparar la capacidad predictiva de los modelos mediante un algoritmo walk-forward validation modificado para que sea computacionalmente asequible. 
+
+En cuanto a la inferencia, las estimaciones de forma frecuentista y bayesiana casi idénticas para datasets con muchas observaciones (debido al peso que tienen en la a posteriori) y en los data sets simulados con pocas observaciones también son muy similares aunque hay una ligera mejora en el método bayesiano para modelos autorregresivos. De todas formas, esta ligera mejora no llega a ser concluyente y significativa ya que se produce para unos pocos parámetros y en un modelo.
+
+La capacidad predictiva tampoco muestra diferencias entre los métodos, pero en gran parte está condicionada por la moficiación realizada al algoritmo walk-forward validation para que fuese computacionalmente asequible.

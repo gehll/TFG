@@ -1,0 +1,38 @@
+---
+title: "TODO"
+author: ''
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output:
+  html_document: 
+    toc: yes
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# COSAS QUE HACER
+
+1. Meter constante en relación de largo plazo de LIBOR Y OVERNIGHT
+
+2. Salidas de los modelos estimados sacarlas en tablas y meter las salidas en el apéndice. SALIDAS DE LOS TEST DE ESTACIONARIEDAD
+
+4. Ver cómo cojones sacar a prioris informativas para BVECM
+
+3. Redactar las conclusiones
+
+4. Meter código en apéndice
+
+5. ¿¿¿¿¿ Meter conjunto de datos pequeño con datos simulados y hacer la estimación con a prioris informativas?????
+
+6. Asegurarme de que todo se printea bien
+
+7. Dejar todo más ordenado y bonito
+
+8. Hacer la bibliografía
+
+9. Hacer el abstract, introducción, etc
+

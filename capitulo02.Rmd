@@ -1,0 +1,1097 @@
+---
+author: "Nombre Completo Autor"
+date: "27/10/2017"
+documentclass: book
+forprint: true  # true: imprime a dos caras, false: libro digital
+fontsize: 12pt # 10pt,11pt
+geometry: margin = 2.5cm 
+bibliography: ["bib/library.bib", "bib/paquetes.bib"]
+# metodobib -> true: natbib (descomentar: citation_package: natbib) 
+#           -> false: pandoc (comentar: citation_package: natbib)
+metodobib: true
+#natbib: plainnat, abbrvnat, unsrtnat
+biblio-style: "plainnat"
+#Método 2 (pandoc): descomente una línea de las 2 siguientes en caso de usarlo
+csl: methods-in-ecology-and-evolution.csl      # no numera mejor en las citas
+#csl: acm-sig-proceedings-long-author-list.csl  # numera peor en las citas
+link-citations: yes
+output: 
+  pdf_document:
+    keep_tex: no
+    number_sections: yes
+    citation_package: natbib  # comentado usa: pandoc-citeproc
+    #toc: yes
+    fig_caption: yes
+    template: latex/templateMemoriaTFE.tex
+    includes:
+      #before_body: portadas/latex_paginatitulo_modTFE.tex
+      #in_header: latex/latex_preambulo.tex
+      #after_body: latex/latex_antes_enddoc.tex
+---
+
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.path = 'figurasR/',
+                      echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.pos="H",fig.align="center",out.width="95%",
+                      cache=FALSE)
+
+```
+
+
+<!-- \setcounter{chapter}{2} -->
+<!-- \setcounter{chapter}{2} escribir 2 para capítulo 3  -->
+<!-- \pagenumbering{arabic} -->
+
+\ifdefined\ifprincipal
+\else
+\setlength{\parindent}{1em}
+\pagestyle{fancy}
+\setcounter{tocdepth}{4}
+\tableofcontents
+<!-- \nocite{*} -->
+\fi
+
+\ifdefined\ifdoblecara
+\fancyhead{}{}
+\fancyhead[LE,RO]{\scriptsize\rightmark}
+\fancyfoot[LO,RE]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[LE,RO]{\footnotesize\thepage}
+\else
+\fancyhead{}{}
+\fancyhead[RO]{\scriptsize\rightmark}
+\fancyfoot[LO]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[RO]{\footnotesize\thepage}
+\fi
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+
+# Metodología y análisis de datos
+
+## Metodología
+
+El objetivo principal de este trabajo es entender las diferencias entre estimar los modelos VAR y VECM de forma bayesiana y de forma frecuentista, tanto para la inferencia como para la predicción de nuevas observaciones. Para esto vamos a utilizar dos conjuntos de datos simulados grandes, dos conjuntos de datos simulados pequeños y dos conjuntos de datos reales. En cada par de conjunto de datos habrá un dataset con series cointegradas y otro dataset con series no cointegradas. De esta forma podemos estimar los modelos autorregresivos y de corrección de equilibrio en datos simulados para comparar los parámetros estimados con los reales, y, también, sobre unos datos reales sin saber la verdadera relación entre las variables ni el valor de los coeficientes para comparar las estimaciones entre los modelos así como su capacidad predictiva.
+
+Para poder comparar el método bayesiano frente al frecuentista para modelos VECM, primero es necesario que las series sean cointegradas ya que si no, carece de sentido estimar este tipo de modelo. Por esto, lo primero que se va a hacer es un análisis de las series temporales para determinar su orden de integración y si están cointegradas. 
+
+En cuanto al análisis de las series y la identificación del orden autorregresivo de los modelos, para los conjuntos de datos simulados sabemos la verdadera relación entre las variables por lo que no habrá que probar diferentes modelos. Se estimarán según cada método especificando la estructura según la estrucutra real para ver si hay diferencias en la estimación. Para las series de datos reales, se mostrará solamente los modelos definitivos que serán elegidos según la metodología *Box-Jenkins*.
+
+### Modelo VAR - Frecuentista
+
+Los modelos VAR son una extensión multivariante dinámica de los modelos autorregresivos univariantes. Es preferible usar los modelos VAR para relacionar diferentes series, puesto que ayuda a explicar mejor el comportamiento de cada una incorporando información de la otra. Además, como también se van a aplicar los modelos de corrección de equilibrio y estos utilizan al menos 2 series temporales, al usar los modelos VAR podemos compararlos frente a los modelos de corrección de equilibrio ya que son una extensión de los modelos autorregresivos multivariantes.
+
+Los modelos VAR tienen $n$ ecuaciones, en este caso $n=2$, y cada ecuación incorpora la información dinámica de cada una de las variables, por esto, se obtienen matrices de orden $n \times n$ para cada retardo. La formulación para un modelo $VAR(1)$ con $n=2$ es la siguiente: 
+
+\begin{equation}
+\begin{split}
+X_{1t} = \phi_{11}X_{1t-1} + \phi_{12}X_{2t-1} + a_{1t}\\
+X_{2t} = \phi_{21}X_{1t-1} + \phi_{22}X_{2t-1} + a_{2t}
+\end{split}
+\label{eq:VAR1}
+\end{equation}
+
+Ambas variables $X_{1t}, X_{2t}$ deben ser estacionarias, tanto $X_{1t}$ como $X_{2t}$ dependen de su pasado y del pasado de la otra, $a_{1t}$ es la innovación de $X_{1t}$ en el momento $t$ y $a_{2t}$ es la innovación de $X_{2t}$ en el momento $t$. Tanto $a_{1t}$ como $a_{2t}$ son ruido blanco y pueden estar relacionadas entre sí, y en este caso se dice que hay relación *contemporánea*. La relación entre las innovaciones está recogida por $Cov(a_{1t}, a_{2t}) = \sigma_{12}$.
+
+El caso del modelo expresado en \ref{eq:VAR1}, refleja un caso donde hay *realimentación*, esto es que $X_{1t}$ depende de $X_{2t}$ y también $X_{2t}$ depende de $X_{1t}$. La realimentación está controlada por los parámetros $\phi_{12}$ y $\phi_{22}$.
+
+Si $\sigma_{12}=0$ no hay relación contemporánea, y, se dice que hay *exogeneidad débil*. Si $\sigma_{12}=0$ y $\phi_{12} = 0$ o $\phi_{22} = 0$, se dice que hay exogeneidad fuerte.
+
+El modelo expresado en \ref{eq:VAR1}, se puede expresan también de la siguiente forma:
+
+\begin{equation}
+\begin{split}
+\boldsymbol{X_t = \Phi_1X_{t-1} + a_{t}}
+\end{split}
+\label{eq:VAR1b}
+\end{equation}
+
+Donde $\boldsymbol{X_t}$ es el vector columna de variables en $t$, $\boldsymbol{\Phi_1}$ es una matrix $n \times n$ con los parámetros autorregresivos, $\boldsymbol{X_{t-1}}$ es el vector columna de variables en $t-1$, y $\boldsymbol{a_t}$ es el vector columna de innovaciones.
+
+El caso anterior en \ref{eq:VAR1b}, puede incorporar un número mayor de retardos donde recoger la dependencia temporal entre las variables y ellas mismas. Los $p$ retardos que se introduzcan definen el orden del modelo VAR, siendo el caso de \ref{eq:VAR1b} un $VAR(1)$ y pudiendo ser del tipo $VAR(p)$ según el número de retardos, $p$, que se incorporen. La formulación de un modelo $VAR(p)$ es la siguiente:
+
+\begin{equation}
+\begin{split}
+\boldsymbol{X_t = \Phi_1X_{t-1} + \Phi_2X_{t-2} + \cdots + \Phi_pX_{t-p} + a_{t}}
+\end{split}
+\label{eq:VARp}
+\end{equation}
+
+Al igual que en \ref{eq:VAR1b}, las matrices $\boldsymbol{\Phi_k}$ serán $n \times n$ para el caso de dos variables. Si al modelo anterior en \ref{eq:VARp} se le incluye un modelo de medias móviles, se obtendrá un modelo $VARMA(p,q)$.
+
+Un aspecto muy importante de los modelos VAR es que han de cumplir la *condición de estacionariedad*. Esta, en un modelo multiecuacional, viene recogida por los coeficientes $\phi_{ij}$. En paralelo con el caso univariante, para que se cumpla la condición, las raíces del determinante de cada matriz polinomial, $\boldsymbol{\Phi_k}$, han de ser mayores que la unidad.
+
+Por todo esto, para estimar un modelo $VAR(p)$ tendremos que seguir los siguientes pasos:
+
+1. Comprobar que las variables son estacionarias, y, en caso contrario, aplicar diferencias y transformaciones hasta que lo sean. En cuanto a aplicar diferencias, se realizará el test de Dickey-Fuller aumentado junto el correlograma para determinar si es necesario aplicar diferencias o no.
+2. Estimar el modelo con las series estacionarias.
+3. Comprobar la condición de estacionariedad del modelo $VAR$ estimado.
+4. Por último, comprobar que los residuos de los modelos son ruido blanco, y, en caso contrario, modificar el modelo con la información del correlograma y análisis de los residuos.
+
+### Modelo VAR - Bayesiano (BVAR)
+
+Los modelos autorregresivos vectoriales (VAR) son modelos flexibles de series temporales que pueden capturar relaciones dinámicas complejas entre variables. Sin embargo, sufren de sobreparametrización, lo que conduce a una inferencia inestable y estimaciones imprecisas de nuevas observaciones, sobre todo en el caso de modelos con muchas variables. Una solución a este problema es incluir información a priori con lo que se reduce el modelo no restringido hacia uno *naive* más parsimonioso, y, así, se reduce la incertidumbre de la estimación y se mejoran las predicciones de observaciones fuera de la muestra[^1.6]. 
+
+Los métodos bayesianos que se han usado para modelos de este tipo se denominan BVAR, difieren en que tratan a los parámetros como variables aleatorias con probabilidades a priori. Una implementación estándar de los modelos VAR bayesianos, es mediante el llamado muestreador de Gibbs, que pertenece a la familia de los métodos MCMC. Se puede encontrar un tratamiento más detallado de la diferencia entre la inferencia frecuentista y la bayesiana de modelos VAR en Kennedy (2008, ch. 14).
+
+A medida que aumenta la relación entre las variables y las observaciones, el papel de las probabilidades a priori es cada vez más importante[^1.5]. La elección de las distribuciones a priori es tema de discusión desde que se empezaron a implementar estos modelos. Se han propuesto varios enfoques a la selección desde las *flat priors*, que se demostró que no funcionaban bien dado que se necesita aportar algún tipo de información (Sims 1980), pasando por hacer uso de la teoría económica (Villani 2009) u otros enfoques como maximizar el ajuste a las predicciones *out-of-sample* (e.g. Litterman 1980) o un ajuste dentro de la muestra para el control del overfitting (Bánbura et al. 2010). 
+
+No hay un consenso en que exista un tipo de distribuciones a priori que funcionen mejor para todos los casos, por esto, un método muy flexible y que elimina esta incertidumbre es el de los *modelos bayesianos jerárquicos* (Giannone et al. 2015). Este método conduce a una inferencia robusta, sustentado teóricamente y puede ser implementado de manera eficiente. Estos hiperparámetros tienen sus propias probabilidades llamadas *hyperpriors* que, extendiendo el teorema de Bayes, siguen la forma:
+
+\begin{equation}
+\begin{split}
+p(\boldsymbol{\gamma}|\boldsymbol{y}) \propto p(\boldsymbol{y}|\boldsymbol{\theta},\boldsymbol{\gamma})p(\boldsymbol{\theta}|\boldsymbol{\gamma})p(\boldsymbol{\gamma})
+\end{split}
+\label{eq:hyper1}
+\end{equation}
+
+\begin{equation}
+\begin{split}
+p(\boldsymbol{y}|\boldsymbol{\gamma}) = \int{ p(\boldsymbol{y}|\boldsymbol{\theta},\boldsymbol{\gamma})p(\boldsymbol{\theta}|\boldsymbol{\gamma})d\boldsymbol{\theta}}
+\end{split}
+\label{eq:hyper2}
+\end{equation}donde $\boldsymbol{y}$ son los datos, $\boldsymbol{\theta}$ los parámetros del modelo VAR, $\boldsymbol{\gamma}$ los hiperparámetros de los a priori.
+
+[^1.5]: Koop, G.; Korobilis, D. (2010). "Bayesian multivariate time series methods for empirical macroeconomics" (PDF). Foundations and Trends in Econometrics. 3 (4): 267–358.
+
+[^1.6]: Karlsson, Sune (2012). Forecasting with Bayesian Vector Autoregression. Handbook of Economic Forecasting. Vol. 2 B. pp. 791–897.
+
+Para implementar este método, existe una librería en R llamada `BVAR` que aplica este método de estimación jerárquico. Por eficiencia computacional, la librería utiliza una a priori conjugada, la Normal-inversa-Wishart. La distribución de los parámetros del modelo VAR según esta a priori conjugada queda de la siguiente forma: 
+
+\begin{equation}
+\begin{split}
+\boldsymbol{\beta}|\boldsymbol{\Sigma} \sim \mathcal{N}(\boldsymbol{b}, \boldsymbol{\Sigma}\otimes\boldsymbol{\Omega}),\\
+\Sigma \sim \mathcal{IW}(\boldsymbol{\Psi},\boldsymbol{d})
+\end{split}
+\label{eq:hyperprior}
+\end{equation} donde $\boldsymbol{b}, \boldsymbol{\Omega}, \boldsymbol{\Psi}, \boldsymbol{d}$ son funciones de un vector de hyperparámetros $\boldsymbol{\gamma}$.
+
+En el artículo de Giannone et al. (2015) sobre el que se basa esta librería, consideran tres distribuciones a priori específicas: *Minnesota* (es el benchmark), *SOC*, y *SUR*.
+
+La a priori Minnesota (Litterman 1980), impone la hipótesis de que todas las variables siguen procesos de paseo aleatorio. Esta especificación parsimoniosa suele dar buenos resultados en previsiones de series temporales macroeconómicas (Kilian y Lütkepohl 2017) y suele utilizarse como referencia para evaluar la precisión de un modelo. Sus parámetros son $\lambda, \alpha$ y $\psi_j$. $\lambda$ controla anchura, $\alpha$ controla el nivel de reduccion de observaciones más lejanas, y $\psi_j$ reduce los retardos de las variables distintas de la dependiente.
+
+Esta librería utiliza el muestreador de Gibbs, de la familia de los métodos MCMC, para obtener las probabilidades a posteriori.
+
+### Modelo VECM - Frecuentista
+
+Los modelos de corrección de equilibrio son unos modelos clásicos de la econometría de series temporales que surgieron con la idea de no desperdiciar las relaciones a largo plazo existentes entre las series. Forman parte de los modelos *no estacionarios* en cuanto a que se trabaja con series no estacionarias. 
+
+Partimos de dos series temporales que han de ser integradas de orden 1. Una serie temporal integrada de orden 1 significa que necesita una diferencia para ser estacionaria. Lo siguiente es crear un modelo de regresión simple del estilo $Y_t = c+\beta X_t + u_t$ que recoge la relación de largo plazo entre las variables. $u_t$ constituye las desviaciones/perturbaciones de la variable con respecto a ese nivel de equilibrio de largo plazo, el que determina el modelo. Si los residuos de este modelo son estacionarios (se utilizará el test de Dickey-Fuller para comprobarlo), se dice que las variables están cointegradas, y, entonces, se trabaja con las series sin ser estacionarias para conservar la relación de largo plazo.
+
+Si las series son cointegradas, $Y_t = c+\beta X_t$ se denomina la relación de equilibrio, y, $m_t = Y_t -c-\beta X_t$ son las desviaciones respecto al equilibrio.
+
+Cuando las series están cointegradas, existe una relación de largo plazo, pero también puede existir una relación contemporánea o de corto plazo. Por esto, si las series están cointegradas el modelo adecuado para estimar las relaciones entre las variables es: 
+
+\begin{equation}
+\triangledown Y_t = b\triangledown X_t + \alpha(Y_{t-1}-c-\beta X_{t-1}) + \epsilon_t
+\label{eq:modeq}
+\end{equation} donde $\epsilon_t$ es ruido blanco, $\alpha$ es la tasa de ajuste sobre los desequilibrios de largo plazo, $\beta$ recoge la relación de largo plazo (en caso de ser variables expresadas en logaritmos expresa la elasticidad de $Y_t$ con respecto de $X_t$), y $b$ recoge la relación contemporánea entre las variables. 
+
+Para que se cumpla la igualdad en \ref{eq:modeq}, $(Y_{t-1}-c-\beta X_{t-1})$ tiene que ser estacionario ya que $\triangledown Y_t, \triangledown X_t$ son estacionarias porque $Y_t, X_t$ son $I(1)$ y $\epsilon_t$ es ruido blanco.
+
+En el modelo expresado en \ref{eq:modeq}, se pueden incluir más retardos tanto para la variable $Y_t$ como para $X_t$. Quedaría así, un modelo de retardos distribuidos para la relación estacionaria, y la parte de corrección de equilibrio para la relación a largo plazo no estacionaria. El modelo presenta la siguiente forma: 
+
+\begin{equation}
+\begin{split}
+\triangledown Y_t = b\triangledown X_t + b_1\triangledown X_{t-1} + b_2\triangledown X_{t-2} +\cdots+ b_s\triangledown X_{t-s} + \\ \alpha(Y_{t-1}-c-\beta X_{t-1}) + \\ 
+a_1 Y_{t-1} + a_2 Y_{t-2} +\cdots+ a_r Y_{t-r} + \epsilon_t
+\end{split}
+\label{eq:modreteq}
+\end{equation}
+
+Al relacionar dos series $I(1)$ con un modelo de largo plazo, existe el peligro de que la relación entre las variables sea significativa cuando en verdad no existe relación alguna entre ellas, esto se denomina *relaciones espurias*. Cuando hay relaciones espurias entre dos series temporales, el modelo de relación a largo plazo presenta un $R^2$ muy elevado y coeficientes significativos indicando que existe una relación y que el modelo se ajusta muy bien, pero, cuando analizamos los residuos, tienen comportamiento no estacionario lo que sugiere que el modelo está mal formulado. Lo que está pasando es que la supuesta relación entre las variables está causada por otra variable, normalmente el *tiempo*. 
+
+Si los residuos no son estacionarios las variables no están cointegradas, y, si volvemos a estimar un modelo para la relación de largo plazo pero aplicando una primera diferencia a cada serie, todas las buenas propiedades del modelo anterior desaparecen. 
+
+Las relaciones espurias son muy comunes cuando se relacionan dos series temporales independientes no estacionarias. Daniel Peña en su libro *Análisis de series temporales* muestra este problema en la Figura 1.1
+
+![Histograma de los valores del estadístico t para la relación lineal entre dos paseos aleatorios independientes]("figurasR/Rel espurias.png")
+
+La figura presenta el histograma del estadístico $t = \frac{\hat\beta}{\hat{se}(\hat\beta)}$ al estimar regresiones entre dos paseos aleatorios independientes. Como indica Daniel Peña en su libro "el 75% de las veces encontraremos un valor de este estadístico mayor que dos, con lo que concluiremos que la pendiente de la ecuación de regresión simple que relaciona ambas variables es distinta de cero. Por tanto, utilizando este estadístico encontraremos con alta probabilidad una relación entre las dos variables que no existe".
+
+A la hora de relacionar dos series temporales, es importante comprobar si están cointegradas o no ya que, si dos series están cointegradas y las relacionamos según la ecuación \ref{eq:modeq} o \ref{eq:modreteq}, la estimación del parámetro $\beta$ es mejor que si se estimara con las series estacionarias, y, la varianza del estimador de $\beta$ tiende a cero. Esto es lo que se denomina *superconsistencia* del estimador $\hat\beta$ cuando se estima un modelo como el de la ecuación \ref{eq:modeq} con las series no estacionarias si las variables están cointegradas (véase Daniel Peña *Análisis de series temporales* páginas 544-545).
+
+Hasta ahora, se han presentado un tipo de modelos de corrección de equilibrio en el que sólo interactúan dos variables y de manera unidireccional. Estos modelos se pueden aplicar de manera bidireccional, $X_t \rightarrow Y_t$ y de $Y_t \rightarrow X_t$. Estos son los denominados modelos VEQCM (modelos vectoriales con mecanismos de corrección de equilibrio). Estas relaciones a largo plazo se pueden estimar también para más de dos variables.
+
+En caso de que haya cointegración entre las variables, un modelo VEQCM quedaría de la siguiente forma:
+
+\begin{equation}
+\begin{split}
+\triangledown X_t = \alpha_1 (X_{t-1}-c-\beta Y_{t-1}) + \epsilon_{1t} \\ 
+\triangledown Y_t = \alpha_2(X_{t-1}-c-\beta Y_{t-1}) + \epsilon_{2t}
+\end{split}
+\label{eq:modveqcm}
+\end{equation}
+
+
+El modelo anterior puede hacerse más complejo e incorporar relaciones a corto plazo como en \ref{eq:modreteq} con el número de retardos que se desee.
+
+Si partimos de un modelo $VAR(1)$ como el de \ref{eq:VAR1b}, podemos comprobar si las series son estacionarias o no y qué tipo de modelo hay que considerar. Reformulamos el modelo en \ref{eq:VAR1b} de la siguiente forma:
+
+\begin{equation}
+\begin{split}
+\boldsymbol{\triangledown X_t = \prod X_{t-1} + a_{t}}
+\end{split}
+\label{eq:VAR1rango}
+\end{equation}
+
+donde 
+\begin{equation}
+\prod = \begin{pmatrix}
+\phi_{11}-1 & \phi_{12}\\ 
+ \phi_{21}& \phi_{22}-1
+\end{pmatrix} = -(I-\Phi_1)
+\label{eq:rango}
+\end{equation}
+
+Si $\prod$ tiene rango 2, las dos series son independientes y estacionarias, no hay relación de largo plazo por lo que se estimaría un modelo con las variables estacionarias. Si el rango es 1, hay una fila linealmente dependiente de la otra por lo que existe una relación de largo plazo y habría que estimar un modelo de corrección de equilibrio. En caso de que el rango fuese 0, tendríamos dos paseos aleatorios y se haría un modelo con las variables en diferencias. 
+
+En definitiva, estos modelos incorporan parte autorregresiva para las relaciones a corto plazo, y la relación a largo plazo estimada para no desperdiciar esta información. Estos modelos son una extensión de los modelos VAR. 
+
+Por todo esto, el procedimiento para crear un modelo de corrección de equilibrio a partir de dos series $X_t$ e $Y_t$ es el siguiente:
+
+1. Comprobar que ambas series sean no estacionarias $I(1)$, si son integradas de otros órdenes todo se complica. Se utilizará el test de Dickey-Fuller para comprobar el grado de integración de cada serie junto con el correlograma. Un correlograma típico de variables no estacionarias suele presentar una estructura marcadamente decreciente en su función de autocorrelación simple.
+2. Estimar una relación lineal como la de \ref{eq:modeq} por mínimos cuadrados.
+3. Obtener los residuos del modelo estimado en el paso *2.* y comprobar si son estacionarios, también se utilizará el test de Dickey-Fuller para contrastarlo.
+4. Si las series son cointegradas, estimar un modelo de corrección de equilibrio como el de la ecuación \ref{eq:modveqcm}.
+
+### Modelo VECM - Bayesiano (BVECM)
+
+Los modelos bayesianos aportan mejoras a la estimación de los modelos VAR cuando se quiere estimar muchos parámetros, y, al ser los modelos de corrección de equilibrio una extesión de estos modelos, es posible que un enfoque bayesiano mejore también los resultados tanto para la inferencia de los parámetros, como para la capacidad predictiva. 
+
+Al igual que con los modelos BVAR, el enfoque bayesiano a los modelos de corrección de equilibrio trata los parámetros como variables con probabilidades a priori. La diferencia es que ahora, aparte de los términos autorregresivos, tenemos que estimar también la parte que recoge la relación de largo plazo y esto genera problemas en la estimación. Si miramos el modelo representado por \ref{eq:modveqcm}, vemos que la estimación bayesiana se puede hacer directamente ya que esta ecuación junto con sus supuestos definen la función de verosimilitud y añadiendo una a priori se puede obtener la estimación bayesiana a posteriori. Pero, surgen problemas de *identificación* por el hecho de que la matriz $\prod$ en \ref{eq:VAR1rango} suele ser de rango reducido. Existe un problema de *identificación global* ya que $\prod = \alpha\beta'$ y $\prod = \alpha AA^{-1} \beta'$ son idénticas para cada $A$ no singular siendo $\alpha$ y $\beta$ matrices $p \times r$ de rango completo donde $0 \leq r \leq p$ es el número de relaciones de cointegración. Si $r=p$, todas las variables tienen tendencia estacionaria. Este problema suele ser superado mediante la *normalización lineal*, donde $\beta = [I_r \space B']'$.
+
+También puede haber un problema de *identificación local* cuando $\alpha = 0$ (en este caso $\beta$ no entra en el modelo) pues la estimación bayesiana con una a priori no informativa puede resultar en una a posteriori impropia, esto es, una distribución a posteriori que no integra a 1. Este problema fue identificado por Kliebergen y Van Dijk (1994, 1998). 
+
+Para evitar estos problemas, Koop et al (2010) proponen una a priori para una "estimación eficiente de las a posteriori". Su metodología se puede implementar junto con la librería `bvartools` en R por lo que se usará este paquete para la estimación de los modelos BVEC.
+
+El procedimiento que proponen evita el problema que surge con las distribuciones a priori linealmente normalizadas que son muy utilizadas para el problema de la identificación global y que generan una a priori poco eficiente computacionalmente para trabajar en el espacio de cointegración y que además, impone restricciones en el espacio de cointegración y según la distribución a priori que se elija, puede estimar valores en el espacio de cointegración donde la normalización lineal es inválida, violando el supuesto de que esta transformación es válida. Además, evitan también el problema de no convergencia en el muestreador de Gibbs causado por la identificación local.
+
+La especificación de las a priori y el algoritmo para obtener las a posteriori implementado en `bvartools` está basado en el trabajo de Koop & Strachan (2010). A continuación, se detalla la especificación del modelo.
+
+Tenemos que $\mathcal{P} = sp(\beta)$ denota el espacio de cointegración que es un hiperplano r-dimensional en un espacio n-dimensional. Deseamos realizar una inferencia bayesiana sobre este espacio sin imponer la identificación de manera que restrinja este espacio. Además, queremos desarrollar unas a priori sensibles.
+
+Como a priori para $\beta$, y, por ello, de $\mathcal{P} = sp(\beta)$, usamos una matriz angular central gaussiana (MACG($P_t$), Chikuse, 1990): 
+
+\begin{equation}
+p(\beta) \propto |P_t|^{-r/2}|\beta'(P_t)^{-1}\beta|^{-n/2}
+\label{eq:betaprior}
+\end{equation}
+
+$P_t$ es $n \times n$ y determina la localización central de $\mathcal{P} = sp(\beta)$ y también la dispersión alrededor de la localización central. 
+
+$P_t$ se define de la siguiente forma: 
+
+\begin{equation}
+P_t = HH' + \tau H_{\perp}H_{\perp}'
+\label{eq:Pt}
+\end{equation}
+
+donde $\tau$ es un escalar entre 0 y 1 que controla la dispersión alrededor del centro, y $H$, es una matriz semiortogonal fruto de la transformación de una matrix $H^g$ que contiene los valores de los coeficientes a priori. La relación entre las matrices es $H = H^g(H^{g'}H^g)^{-1/2}$.
+
+Cabe destacar que si $\tau = 1$, entonces, $P_t = I_n$ y tendremos una a priori uniforme no informativa para $\beta$, y si $\tau \approx 0$ estaríamos introduciendo mucha confianza en que la localización de la a priori es cierta.
+
+En cuanto a $\alpha$, se elige una a priori con media cero y de dimensión reducida
+
+\begin{equation}
+\alpha | \beta,\tau,\Sigma, \nu \sim MN(0, \nu(\beta'P_{1/\tau}\beta)^{-1}\otimes G)
+\label{eq:alphaprior}
+\end{equation}
+
+donde, MN es una distribución matriz-variante-Normal (ver Bauwens et al., 1999, Appendix A), $P_{1/\tau} = HH' + \tau^{-1}H_{\perp}H_{\perp}'$, $G$ es una matrix $n \times n$ y $\nu$ es un escalar que controla el nivel de reducción de dimensión. La matriz $G$ puede ser igual a $\Sigma$ (Strachan & Inder, 2004), pero puede tomar otros valores para más flexibilidad. $\nu$ puede ser fijo o se hace un modelo jerárquico donde tomará diferentes valores.
+
+Por último, se usa la priori no informativa estándar para $\Sigma$
+
+\begin{equation}
+p(\Sigma) \propto |\Sigma|^{-(n+1)/2}
+\label{eq:sigmaprior}
+\end{equation}
+
+pero también se puede usar una Wishart invertida.
+
+Las distribuciones a priori reflejadas desde \ref{eq:betaprior} hasta \ref{eq:sigmaprior}, son sensibles. Además, Strachan y Inder (2004) dan más información y motivación para usar estas a prioris para el caso que $G=\Sigma$ ya que además de las buenas propiedas con las que cuenta, es computacionalmente más simple. Otra ventaja de esta formulación, es que la a priori estándar no informativa para $\alpha$ se consigue simplemente fijando $\frac{1}{\nu} = 0$ y permite obtener las estimaciones a posteriori también con esta a priori.
+
+En cuanta a la estimación a posteriori de los parámetros, Koop y Strachan utilizan muestreador de Gibbs colapsado que junto con las a prioris anteriores ofrece una computación eficiente y simple.
+
+Los muestras de $\Sigma$ mediante MCMC se pueden obtener de una Wishart invertida
+
+\begin{equation}
+\Sigma|\alpha,\beta,Data \sim IW([y - X\beta\alpha']'[y - X\beta\alpha'], T),
+\label{eq:sigmapost1}
+\end{equation}
+
+pero, si $G$ es fija o igual a $\Sigma$, la distribución apropiada es
+
+\begin{equation}
+\Sigma|\alpha,\beta,Data \sim IW([y - X\beta\alpha']'[y - X\beta\alpha'] + \nu^{-1}\alpha(\beta' P_{1/\tau}\beta)\alpha', T+r),
+\label{eq:sigmapost2}
+\end{equation}
+
+$\tau$ y $\nu$ pueden tratarse como parámetros desconocidos, y, en ese caso, se ha de elegir una a priori para ellos y un paso extra en el MCMC que saque valores de $\tau$ y $\nu$. En este algoritmo implementado por Koop y Strachan, no los tratan como parámaetros desconocidos y se centran en los problemas relacionados a obtener $\alpha$ y $\beta$.
+
+En el algoritmo MCMC que desarrollan, tratan de evitar el problema que surge al imponer la semiortogonalidad de $\beta$. Esta restricción hace que la distribución a posteriori condicional de $\beta$ es no-estándar. Para solucionar esto aplican la siguiente transformación:
+
+\begin{equation}
+\beta\alpha' = (\beta k)(\alpha k^{-1})' = \left[\beta(\alpha'\alpha)^{1/2}\right] \left[\alpha(\alpha'\alpha)^{1/2}\right] = BA'
+\label{eq:betatransform}
+\end{equation}
+
+siendo $k$ una matriz definida positiva y $A=\alpha k^{-1}$ semiortogonal. Cabe destacar las siguientes relaciones entre los parámetros en \ref{eq:betatransform}:
+
+\begin{equation}
+\begin{split}
+k = (\alpha'\alpha)^{1/2} \\
+\beta = B(B'B)^{-1/2} \\
+B'B = \alpha'\alpha
+\end{split}
+\label{eq:relaciones}
+\end{equation}
+
+Estas últimas relaciones son importantes ya que en \ref{eq:betatransform} $\beta$ es semiortogonal y $\alpha$ no está restringida, y en la que relaciona $A$ y $B$ resulta que $B$ no está restringida y $A$ es semiortogonal, por lo que el muestreador colapsado de Gibbs que desarrollan va alternando entre estas dos ya que se demuestra que es útil.
+
+Teniendo en cuenta que la a priori para $(\alpha, \beta)$ de \ref{eq:betaprior} y \ref{eq:alphaprior} implica que la a priori para $(A,B)$ es
+
+\begin{equation}
+B|A \sim MN(0, (A'G^{-1}A)^{-1} \otimes P_\tau),
+\label{eq:ABprior1}
+\end{equation}
+
+\begin{equation}
+p(A) \propto |G|^{-r/2}|A'G^{-1}A|^{-n/2}
+\label{eq:ABprior2}
+\end{equation}
+
+y combinando las a priori de \ref{eq:ABprior1} y \ref{eq:ABprior2} con la verosimilitud, se obtiene una a distribución a posteriori condicionada que es Normal. 
+El algoritmo que han desarrollado, después de elegir un valor inicial para $\beta^{(0)}$ repite los siguientes pasos:
+
+1. Sacar $\alpha^{(\star)}$ de $P(\alpha|\beta,Data)$ y transformar esto para obtener $A^{(\star)} = \alpha^{(\star)}(\alpha^{(\star)'}\alpha^{(\star)})^{-1/2}$
+2. Sacar $B^{(\star)}$ de $p(B|A^{(\star)}, Data)$ y transformar esto para obtener $\beta^{(s)} = B^{(s)}(B^{(s)'}B^{(s)})^{-1/2}$ y $\alpha^{(s)} = A^{(\star)}(B^{(s)'}B^{(s)})^{1/2}$
+
+Para más detalles sobre por qué esto forma un muestreador colapsado de Gibbs y más detalles sobre el algoritmo, ver Koop y Strachan (2010).
+
+Una ventaja de este algoritmo es que sólo saca muestras de una distribución normal.
+
+Cabe destacar que los modelos BVEC rara vez se tienen en cuenta para predecir las variables macroeconómicas. Particularmente en el caso de las aplicaciones en dimensiones superiores. El contraste de cointegración con dimensiones crecientes se convierte en una carga y no hay una forma automática de estimar los modelos BVEC (e.g. Jan Prüser (2021)). Se han hecho avances en este aspecto incorporando reducciones jerárquicas de la matriz de relación de largo plazo para los modelos BVEC (e.g. Jan Prüser (2021)).
+
+Aún así, un estudio de simulación revela que los modelos BVEC equipados con ciertas distribuciones a priori funcionan bien en una serie de escenarios. En presencia de cointegración, los modelos BVEC pueden mejorar la precisión de la estimación respecto a los BVAR en primeras diferencias. En ausencia de cointegración, estas distribuciones a priori específicas son capaces de reducir la matriz de relación de largo hacia cero, de modo que la precisión de la estimación del modelo BVEC es similar a la del modelo BVAR estimado en primeras diferencias (e.g. Jan Prüser (2021)).
+
+Si observamos los modelos en \ref{eq:modeq}, \ref{eq:modreteq} y \ref{eq:modveqcm}, vemos que una vez estimados los modelos, sus parámetros permanecen constantes en el tiempo. Estaríamos asumiendo que esta relación estimada se mantiene en el tiempo, tanto la relación a corto como a largo plazo. Esto plantea diferentes problemas ya que las series temporales por su naturaleza evolucionan, fluctuan, y, algunas, tienen ciclos. Es de este problema de donde surge la idea para este trabajo de fin de grado. Además, como se ha comentado, la estimación frecuentista de estos modelos suele tener malas capacidades de predicción para grandes conjuntos de datos, y, sobre todo, cuando hay muchas variables.
+
+### Análisis de la capacidad predictiva de los modelos
+
+Aparte de analizar las diferencias en la inferencia de los parámetros según cada método de estimación, es interesante estudiar la capacidad predictiva de los modelos. Las series temporales tienen la característica de que las observaciones que están muy cercanas en el tiempo están muy correlacionadas, por lo que separar los datos en muestra de train y test de forma aleatoria no es lo más apropiado ya que se produce un tipo de *information leakage*. Predecir una observación en el tiempo $j+s$ cuando $s \rightarrow 1$ habiendo utilizado la observación $j$ en los datos de entrenamiento, hace que el error de test resultante esté sesgado y no sea representativo de la capacidad predictiva del modelo ya que a medida que $s \rightarrow 1$ la correlación entre las observaciones suele ser más fuerte. Además, no sólo es cuestión de la correlación entre observaciones cercanas, sino que una característica importante de los modelos para series temporales es si son capaces de captar el comportamiento que tendrá la serie en el futuro, tanto en tendencia como encuanto a los ciclos y evolución de la variabilidad. Al muestrear de forma aleatoria, no es posible medir esto.
+
+Por todo lo comentado, el procedimiento habitual a la hora de estimar la capacidad predictiva de modelos para series temporales se basa en conservar la estructural temporal de los datos. Algunos de los procedimientos habituales son: usar un conjunto de train y otro de test, hacer varias divisiones de train y test a lo largo de la serie que conserven la estructura temporal, y walk-forward validation. Este último procedimiento es el que se va a emplear para medir la capacidad predictiva de los modelos.
+
+El método de walk-forward validation funciona de la siguiente forma: 
+
+1. Se elige un número de observaciones $t$, normalmente pequeño, con el que se estimará el modelo inicial.
+2. Con el modelo inicial estimado con las $t$ primeras observaciones, se predice la observación en el momento $t+1$.
+3. Se mide el error entre la predicción y el valor real, normalmente mediante con el cuadrado del error.
+4. La observación en el periodo $t+1$ se añade al conjunto de entrenamiento, por lo que ahora $t = t+1$ para entrenar el modelo.
+5. Se repite 1-4 hasta que se haya recorrido toda la serie. Al terminar, se calcula el error cuadrático medio (RMSE).
+
+Para este trabajo de fin de grado, el algoritmo de walk-forward validation se va a modificar por motivos computacionales. Debido a que los modelos bayesianos utilizan un tipo de muestreador de Gibbs, tardan más en estimarse que los modelos frecuentistas. Lo mismo pasa con el cálculo de las predicciones. Por esto, el algoritmo se va a modificar de la siguiente forma: 
+
+0. Para las series diaras, el horizonte temporal de predicción en vez de ser $t + 1$ será $t + 30$, es decir, se predecirán con un horizonte temporal de un mes. Para las series trimestrales, el horizonte temporal será $t+4$, también un horizonte temporal de un año.
+1. Se elige un número de observaciones $t$ tal que el número de iteraciones del algoritmo sea igual a 30, teniendo en cuenta el horizonte temporal de predicción especificado en 0.
+2. Con el modelo inicial estimado con las $t$ primeras observaciones, se predicen las observaciones hasta el momento $t+30$ para series diarias y $t+4$ para series trimestrales.
+3. Se mide el error entre las predicciones y los valores reales y se calcula el RMSE para esa iteración del algoritmo.
+4. Las observaciones que se han predecido se añaden al conjunto de entrenamiento, por lo que ahora $t = t+30$ para series diarias y $t=t+4$ para series trimestrales a la hora de volver a estimar el modelo.
+5. Se repite 1-4 hasta que se haya recorrido toda la serie. Al terminar, se calcula la media de todos los 30 RMSE.
+
+De esta forma se consigue que sea computacionalmente viable realizar este procedimiento, y se consigue una muestra de 30 RMSE para cada serie que se puede utilizar para calcular intervalos de confianza.
+
+## Análisis de datos
+
+Como se indicó en la introducción al trabajo, para comparar el enfoque bayesiano frente al frecuentista se van a aplicar los diferentes modelos a una serie de conjuntos de datos. Primero, vamos a simular dos conjuntos de series temporales: uno para los modelos autorregresivos y otro para los modelos de corrección de equilibrio. De esta forma, sabiendo los parámetros "reales" se compararán las estimaciones entre el modelo bayesiano y el frecuentista. Por otro lado, se usarán dos conjuntos de datos reales que recogen por un lado los swaps a 9 meses y el LIBOR a 12 meses en la eurozona, y, por otro lado, datos macroeconómicos de los estados Unidos desde mediados del siglo 20 hasta principios del 21.
+
+Primero se simularán los datos, y después se empezará por un análisis descriptivo de los mismos (gráfico de las series simuladas y correlogramas) seguido de los respectivos contrastes para determinar el orden de integración con el contraste de Dickey-Fuller. Después, se comentarán las posibles transformaciones necesarias para trabajar con series estacionarias, y, para los datos que se usarán en la estimación de los modelos de corrección de equilibrio, se analizará si las series son cointegradas o no. Para los conjuntos de datos reales se seguirán los mismos pasos.
+
+### Simulación de los datos
+
+Primero vamos a simular unas series temporales que se usarán para comparar la estimación frecuentista y bayesiana en modelos autorregresivos. Para la simulación, vamos a generar dos conjuntos de series temporales que sigan el siguiente modelo VAR:
+
+\begin{equation}
+\begin{split}
+\begin{bmatrix}
+y_t\\ 
+x_t
+\end{bmatrix} = \begin{bmatrix}
+0.5 & 0.0 \\ 
+ -0.3 & 0.4
+\end{bmatrix} \begin{bmatrix}
+y_{t-1}\\ 
+x_{t-1}
+\end{bmatrix} + \begin{bmatrix}
+-0.1 & 0.1 \\ 
+ 0.2 & -0.3
+\end{bmatrix} \begin{bmatrix}
+y_{t-2}\\ 
+x_{t-2}
+\end{bmatrix} + \begin{bmatrix}
+0.2 & 0.2 \\ 
+ 0.3 & -0.1
+\end{bmatrix} \begin{bmatrix}
+y_{t-3}\\ 
+x_{t-3}
+\end{bmatrix} + \begin{bmatrix}
+\epsilon_{1t}\\ 
+\epsilon_{2t}
+\end{bmatrix}
+\end{split}
+\label{eq:simvar}
+\end{equation}
+
+con matriz de varianza-covarianzas \begin{equation}
+\Omega = \begin{pmatrix}
+1 & 0.3 \\ 
+ 0.3 & 1
+\end{pmatrix}
+\end{equation}
+
+Se simulará un conjunto de datos con dos series de 1000 observaciones cada una, y otro conjunto de dos series con 100 observaciones cada una. Ambas siguiendo la misma relación entre las variables. Para esto, se va a hacer uso de la función `VAR.sim` dentro de la librería `tsDyn`.
+
+- Análisis del conjunto de datos simulado para modelos autorregresivos con 1000 observaciones por cada serie:
+
+```{r fig.cap = "Datos simulados para VAR. \\label{VAR_sim}", fig.height = 3}
+set.seed(100)
+library(tsDyn) #Para simular datos según VAR especifico
+library(vars)
+library(kableExtra)
+
+#Matriz de coeficientes phi y matriz omega de covarianzas
+A <- matrix(c(0.5, 0, -0.1, 0.1, 0.2, 0.2, -0.3, 0.4, 0.2, -0.3, 0.3, -0.1), byrow = TRUE, nrow = 2, ncol = 6)
+varcovar <- matrix(c(1,0.3, 0.3, 1),2)
+
+#generamos datos
+datos_var <- VAR.sim(B = A, lag = 3, include = "none", n = 1000, varcov = varcovar)
+ts.plot(datos_var, type="l", col=c(1,2), gpars = list(main="Datos simulados para modelo VAR"))
+```
+
+El modelo VAR que se ha usado para simular los datos ha de cumplir la condición de estacionariedad, lo que significa que las raices del determinante de cada matriz polinomial, $\boldsymbol{\Phi_k}$, han de ser mayores que la unidad. Se puede comprobar que todas las matrices polinomiales en \ref{eq:simvar} cumplen esta condición. Ahora, vamos a analizar cada serie por separado.
+
+```{r fig.height = 3, fig.cap = "Variable X1 simulada para VAR. \\label{X1_var}"}
+ts1_var <- ts(datos_var[,1])
+
+plot(ts1_var, ylab="X1", main="Variable X1 simulada para VAR")
+```
+
+```{r fig.cap = "Autocorrelación simple de X1 para VAR. \\label{X1_var_acf}", fig.height = 3}
+acf(ts1_var, main="X1")
+```
+
+
+En cuanto a la estacionariedad en varianza, la serie presenta una varianza muy constante a lo largo del tiempo, no se aprecian factores estacionales, y, la serie fluctúa en torno a una media alrededor de 0 sin presentar tendencias, crecimiento sistemático o patrones no estacionarios. Esto se debe a que en la simulación de los datos no se ha introducido ni estacionalidad, tendencia o  crecimiento sistemático.
+
+En cuanto a su autocorrelación simple y parcial, hay algunos retardos que se salen de las bandas de confianza pero en general la mayoría están dentro de ellas y no hay una estructura marcada decreciente característica de series no estacionarias. Para comprobar la hipótesis de estacionariedad que se ha planteado con el análisis descriptivo, vamos a realizar un test de Dickey-Fuller aumentado para contrastar si la serie tiene raices unitarias o no:
+
+|        | Augmented DF | P-Value |
+|--------|:------------:|:-------:|
+| X1_var |    -7.1873   |  < 0.01 |
+
+El test indica que la serie es estacionaria y que no presenta raices unitarias al 5% de significación. Recordemos que la hipótesis alternativa es que la serie es estacionaria.
+
+Vamos a repetir este proceso para la otra serie simulada para el modelo VAR.
+
+```{r fig.cap = "Serie temporal X2 datos simulados. \\label{X2_var}", fig.height = 3}
+ts2 <- ts(datos_var[,2])
+
+plot(ts2, ylab="X2", main="Variable X2 simulada para VAR")
+```
+
+```{r fig.cap = "Autocorrelación simple de X2 simulada para VAR. \\label{X2_var_acf}", fig.height = 3}
+acf(ts2, main="X2")
+```
+
+Igual que con la serie anterior, la varianza parece estacionaria, la serie fluctúa en torno a una media que es más o menos el 0, no hay comportamientos estacionales ni crecimientos sistemáticos o tendencias.
+
+En cuanto a su autocorrelación simple y parcial, hay algunos retardos que se salen de las bandas de confianza pero no existe ningún tipo de estructura marcada que indique no estacionariedad. Por último, realizamos el test de Dickey-Fuller aumentado para contrastar la hipótesis de no estacionariedad:
+
+|        | Augmented DF | P-Value |
+|--------|:------------:|:-------:|
+| X2_var |    -9.1044   |  < 0.01 |
+
+Esta serie también es estacionaria según el test de Dickey-Fuller aumentado tanto al 5% como al 1%. 
+
+Estos resultados no son sorprendentes dado que la función utilizada para simular los datos recibe un modelo VAR con parámetros específicos y devuelve series estacionarias sacadas de ese modelo VAR que se introduce. Además, no se ha metido ningún tipo de tendencia, constante o factor estacional a la función para simular los datos.
+
+- Análisis del conjunto de datos simulado para modelos autorregresivos con 100 observaciones por cada serie:
+
+```{r fig.cap = "Datos simulados para VAR. \\label{VAR_sim100}", fig.height = 3}
+set.seed(100)
+
+#generamos datos
+datos_var100 <- VAR.sim(B = A, lag = 3, include = "none", n = 100, varcov = varcovar)
+ts.plot(datos_var100, type="l", col=c(1,2), gpars = list(main="Datos simulados para modelo VAR"))
+```
+
+Ahora, vamos a analizar cada serie por separado.
+
+```{r fig.height = 3, fig.cap = "Variable X1 simulada para VAR. \\label{X1_var100}"}
+ts1_var100 <- ts(datos_var100[,1])
+
+plot(ts1_var100, ylab="X1", main="Variable X1 simulada para VAR")
+```
+
+```{r fig.cap = "Autocorrelación simple de X1 para VAR. \\label{X1_var_acf100}", fig.height = 3}
+acf(ts1_var100, main="X1")
+```
+
+En cuanto a la estacionariedad en varianza, la serie presenta una varianza constante a lo largo del tiempo, no se aprecian factores estacionales, y, la serie fluctúa en torno a una media alrededor de 0 con algunas rachas por encima y por debajo de este valor pero sin llegar a ser tendencial, crecimiento sistemático o patrones no estacionarios.
+
+En cuanto a su autocorrelación simple y parcial, hay algunos retardos que se salen de las bandas de confianza pero en general la mayoría están dentro de ellas y no hay una estructura marcada decreciente característica de series no estacionarias. Para comprobar la hipótesis de estacionariedad que se ha planteado con el análisis descriptivo, vamos a realizar un test de Dickey-Fuller aumentado para contrastar si la serie tiene raices unitarias o no:
+
+|           | Augmented DF | P-Value |
+|-----------|:------------:|:-------:|
+| X1_var100 |    -3.9391   | 0.01498 |
+
+El test indica que la serie es estacionaria y que no presenta raices unitarias al 5% de significación. 
+
+Vamos a repetir este proceso para la otra serie simulada para el modelo VAR.
+
+```{r fig.cap = "Serie temporal X2 datos simulados. \\label{X2_var_100}", fig.height = 3}
+ts2100 <- ts(datos_var100[,2])
+
+plot(ts2100, ylab="X2", main="Variable X2 simulada para VAR")
+```
+
+```{r fig.cap = "Autocorrelación simple de X2 simulada para VAR. \\label{X2_var_acf100}", fig.height = 3}
+acf(ts2100, main="X2")
+```
+
+Igual que con la serie anterior, la varianza parece estacionaria, la serie fluctúa en torno a una media que es más o menos el 0, no hay comportamientos estacionales ni crecimientos sistemáticos o tendencias.
+
+En cuanto a su autocorrelación simple y parcial, hay algunos retardos que se salen de las bandas de confianza pero no existe ningún tipo de estructura marcada que indique no estacionariedad. Por último, realizamos el test de Dickey-Fuller aumentado para contrastar la hipótesis de no estacionariedad:
+
+|           | Augmented DF | P-Value |
+|-----------|:------------:|:-------:|
+| X2_var100 |    -5.8493   |  < 0.01 |
+
+Esta serie también es estacionaria según el test de Dickey-Fuller aumentado tanto al 5% como al 1%. 
+
+Estos resultados no son sorprendentes dado que la función utilizada para simular los datos recibe un modelo VAR con parámetros específicos y devuelve series estacionarias sacadas de ese modelo VAR que se introduce. Además, no se ha metido ningún tipo de tendencia, constante o factor estacional a la función para simular los datos.
+
+El siguiente paso es generar los datos para estimar los modelos de corrección de equilibrio. Estos modelos reciben series cointegradas, por lo que para simular datos que luego se puedan usar para estimar un modelo VEC, aparte de relaciones contemporáneas o de corto plazo como las que se han simulado para los datos del modelo VAR, habrá que incorporar una relación de largo plazo entre las variables. 
+
+Para conseguir esto, existe una función en R llamada `VECM.sim` que funciona de la misma forma que la función utilizada para simular series para un modelo VAR. El modelo VEC a través del cual vamos a simular datos es el siguiente:
+
+\begin{equation}
+\begin{split}
+\begin{bmatrix}
+\triangledown X_{1t}\\ 
+\triangledown X_{2t}
+\end{bmatrix} = 
+\begin{bmatrix}
+-0.3\\ 
+0.2
+\end{bmatrix} \left ( X_{1t-1} - 1.5 X_{2t-1}  \right )
++ \begin{bmatrix}
+0.2 & -0.3\\ 
+ 0.4 & -0.2
+\end{bmatrix} \begin{bmatrix}
+\triangledown X_{1t-1}\\ 
+\triangledown X_{2t-1}
+\end{bmatrix} + \begin{bmatrix}
+0.2 & 0.1\\ 
+ 0.1 & -0.25
+\end{bmatrix} \begin{bmatrix}
+\triangledown X_{1t-2}\\ 
+\triangledown X_{2t-2}
+\end{bmatrix}
+\end{split}
+\label{eq:simvec}
+\end{equation}
+
+- Análisis del conjunto de datos simulado para modelos de corrección de equilibrio con 1000 observaciones:
+
+```{r fig.cap = "Datos simulados para VECM. \\label{VECM_sim}", fig.height = 3}
+set.seed(100)
+library(mnormt)
+
+innov<-rmnorm(1000, varcov=diag(2))
+Bvecm <- rbind(c(-0.3, 0.2,-0.3, 0.2, 0.1), c(0.2, 0.4, -0.2, 0.1, 0.25))
+datos_VEC <- VECM.sim(B=Bvecm,  n=1000, beta=1.5, lag=2,include="none", innov=innov)
+ts.plot(datos_VEC, type="l", col=c(1,2), gpars = list(main="Datos simulados para modelo VEC"))
+```
+
+Como hemos visto en la metodología de los modelos VECM, para poder estimar este tipo de modelos las series han de ser ambas $I(1)$ y estar cointegradas, por lo tanto en el análisis de los datos tendremos que contrastar que las series sólo necesitan una diferencia regular, que están relacionadas por un modelo lineal, y, que los residuos de este modelo son estacionarios. Lo primero que vamos a hacer es comprobar la condición de que ambas series han de ser $I(1)$.
+
+La serie $X1$ presenta las siguientes características recogidas en su evolución temporal y el correlograma:
+
+```{r fig.height = 3, fig.cap = "Variable X1 para VECM. \\label{X1_vecm}"}
+ts1_vec <- ts(datos_VEC[,1])
+
+plot(ts1_vec, ylab="X1", main="Variable X1 simulada para VECM")
+```
+
+```{r fig.cap = "Autocorrelación simple de X1 para VECM. \\label{X1_vecm_acf}", fig.height = 3}
+acf(ts1_vec, main="X1")
+```
+
+Observando la serie, vemos que la varianza es constante a lo largo de la misma, pero no hay estacionariedad en la parte regular pues la serie presenta una tendencia positiva marcada. Además, si miramos la autocorrelación simple, se observa la típica estructura decreciente característica de series no estacionarias. En cuanto a estacionalidad, la serie no es estacionaria en la parte estacional como se puede observar en el gráfico de la serie, esto se debe a que a la hora de simular los datos no se han introducido patrones estacionales en el modelo.
+
+Vamos a contrastar la hipótesis de no estacionariedad, y, por lo tanto de que la serie es al menos $I(1)$ mediante el test de Dickey-Fuller aumentado.
+
+|         | Augmented DF | P-Value |
+|---------|:------------:|:-------:|
+| X1_vecm |    -2.5244   |  0.3563 |
+
+Al no rechazar la hipótesis nula, el test nos indica que la serie presenta raices unitarias y que es necesario aplicar diferencias. Vamos a aplicar una primera diferencia a la serie $X1$ generada para el modelo VECM, y, volveremos a contrastar si tiene raices unitarias. Como la serie ha de ser $I(1)$ para entrar en el modelo VECM, se tiene que rechazar el contraste de Dickey-Fuller aumentado.
+
+```{r fig.height = 3, fig.cap = "Variable X1 en diferencias para VECM. \\label{X1_vecm_diff}"}
+ts1_vec_diff <- ts(diff(datos_VEC[,1])) #aplicamos una primera diferencia
+
+plot(ts1_vec_diff, ylab="X1", main="Variable X1 en diferencias para VECM")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "Autocorrelación simple de X1 en diferencias para VECM. \\label{X1_vecm_diff_acf}", fig.height = 3}
+acf(ts1_vec_diff, main="X1")
+```
+
+
+Vemos que al aplicar una primera diferencia regular la serie toma valores en torno a una media (0) y no presenta ni tendencia, crecimiento sistemático, o comportamientos de paseo aleatorio. Además, la estructura de la autocorrelación simple se ha eliminado y ahora no hay retardos que sobrepasen las bandas de confianza. Por último, vamos a constratar que la serie no necesita otra diferencia regular mediante el test de Dickey-Fuller aumentado.
+
+|              | Augmented DF | P-Value |
+|--------------|:------------:|:-------:|
+| diff_X1_vecm |    -8.381    |  < 0.01 |
+
+Vemos que se rechaza la hipótesis nula de que la serie no es estacionaria por lo que podemos concluir que la serie original $X1$ es $I(1)$.
+
+Ahora, vamos a repetir este proceso con la serie $X2$. Comenzaremos con el análisis descriptivo de la serie original.
+
+```{r fig.height = 3, fig.cap = "Variable X2 para VECM. \\label{X2_vecm}"}
+ts2_vec <- ts(datos_VEC[,2])
+
+plot(ts2_vec, ylab="X2", main="Variable X2 simulada para VECM")
+```
+
+```{r fig.cap = "Autocorrelación simple de X2 para VECM. \\label{X2_vecm_acf}", fig.height = 3}
+acf(ts2_vec, main="X2")
+```
+
+
+Igual que con $X1$, la serie presenta una tendencia positiva, no oscila en torno a una media, y su autocorrelación simple presenta una estructura decreciente muy marcada con varios retardos significativos. En cuanto a la estacionalidad, la serie no presenta comportamiento estacional. A continuación, usamos otra vez el test de Dickey-Fuller aumentado para contrastar que la serie necesita una diferencia regular.
+
+|         | Augmented DF | P-Value |
+|---------|:------------:|:-------:|
+| X2_vecm |    -2.4161   |  0.4022 |
+
+Se acepta la hipótesis de que la serie no es estacionaria por lo que necesitamos aplicar diferencias. Vamos a diferenciar la serie y ver si necesita otra diferencia o si con una sirve.
+
+```{r fig.height = 3,  fig.cap = "Variable X2 en diferencias para VECM. \\label{X2_vecm_diff}"}
+ts2_vec_diff <- ts(diff(datos_VEC[,2])) #aplicamos una primera diferencia
+
+plot(ts2_vec_diff, ylab="X2", main="Variable X2 en diferencias para VECM")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "Autocorrelación simple de X2 en diferencias para VECM. \\label{X2_vecm_diff_acf}", fig.height = 3}
+acf(ts2_vec_diff, main="X2")
+```
+
+
+Tanto el gráfico de la serie diferenciada como la autocorrelación simple indican que la serie es estacionaria y que no hace falta otra diferencia en la parte regular. La serie oscila en torno al 0, y se ha eliminado la estructura de la autocorrelación simple. Vamos a contrastarlo con el test de Dickey-Fuller aumentado.
+
+|              | Augmented DF | P-Value |
+|--------------|:------------:|:-------:|
+| diff_X2_vecm |    -8.7532   |  < 0.01 |
+
+Rechazamos $H_0$ con lo que tenemos que $X2$ es $I(1)$ igual que $X1$. El siguiente paso es crear un modelo que relacione las variables en el largo plazo del tipo $Y_t = c+\beta X_t + u_t$ por mínimos cuadrados ordinarios.
+
+```{r fig.cap = "Relación lineal entre X1 y X2 simuladas para VECM. \\label{linearmod_vecm}", fig.height = 3}
+colnames(datos_VEC) <- c("X1", "X2")
+datos_VEC <- as.data.frame(datos_VEC)
+
+coint_mod <- lm(X1~X2, data = datos_VEC)
+beta0 <- coint_mod$coefficients[1]
+beta1 <- coint_mod$coefficients[2]
+plot(datos_VEC$X2, datos_VEC$X1, ylab = "X1", xlab = "X2", main = "Regresión lineal de X1~X2")
+abline(coef = c(beta0,beta1), col="blue")
+```
+
+La relación de largo plazo es positiva y los valores de los estadísticos e indicadores de ajuste se recogen en el siguiente summary:
+
+|           | Estimate | Std. Error | t.value | p-value  |
+|-----------|:--------:|:----------:|---------|----------|
+| Intercept |  0.2066  |   0.0954   | 2.164   | 0.0307   |
+| X2        | 1.4723   | 0.0070     | 207.80  | <2.2e-16 |
+
+El estimador de $\beta_1$ es significativo con valor 1.472, muy cercano al 1.5 real, el $R^2$ es de 0.9774, y el estadístico $F$ es significativo por lo que el modelo es globalmente significativo. Para contrastar si existe cointegración entre las series hace falta que los residuos de este modelo sean estacionarios. La serie temporal de los series presenta las siguientes características.
+
+```{r fig.cap = "Residuos de la relación lineal entre variables simuladas para VECM. \\label{linearmod_vecm_resid}", fig.height = 3}
+ts_resid_VEC <- ts(coint_mod$residuals)
+
+plot(ts_resid_VEC, ylab="Resid", main="Residuos de la relación lineal X1~X2")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "ACF de los residuos de la relación lineal entre variables simuladas para VECM. \\label{linearmod_vecm_resid_acf}", fig.height = 3}
+acf(ts_resid_VEC, main="Resid")
+```
+
+
+La serie temporal de los residuos oscila en torno al cero, y tiene un comportamiento que parece estacionario. La autocorrelación simple muestra que el retardo 1 y 2 sobrepasan las bandas de confianza teniendo el retardo 1 una autocorrelación simple muestral cercana a 0.4. También algunos retardos en torno al retardo 10 sobrepasan las bandas de confianza, aún así no hay una estructura marcada y excepto el retardo 1 y 2, el resto de retardos que sobrepasan las bandas de confianza lo hacen por poco. Vamos a realizar el test de Dickey-Fuller aumentado para salir de dudas y ver si existe cointegración o no. 
+
+|             | Augmented DF | P-Value |
+|-------------|:------------:|:-------:|
+| coint_resid |    -4.914    |  < 0.01 |
+
+El test rechaza la hipótesis nula de que los residuos no sean estacionarios, por lo que al ser el modelo lineal globalmente significativo y los residuos estacionarios, concluimos que las series están cointegradas y que se puede estimar un modelo de corrección de equilibrio entre las series.
+
+- Análisis del conjunto de datos simulado para modelos de corrección de equilibrio con 100 observaciones:
+
+```{r fig.cap = "Datos simulados para VECM. \\label{VECM_sim100}", fig.height = 3}
+set.seed(100)
+
+innov<-rmnorm(100, varcov=diag(2))
+Bvecm <- rbind(c(-0.3, 0.2,-0.3, 0.2, 0.1), c(0.2, 0.4, -0.2, 0.1, 0.25))
+datos_VEC100 <- VECM.sim(B=Bvecm,  n=100, beta=1.5, lag=2,include="none", innov=innov)
+ts.plot(datos_VEC100, type="l", col=c(1,2), gpars = list(main="Datos simulados para modelo VEC"))
+```
+
+Vamos a comprobar que ambas series son $I(1)$.
+
+La serie $X1$ presenta las siguientes características recogidas en su evolución temporal y el correlograma:
+
+```{r fig.height = 3, fig.cap = "Variable X1 para VECM. \\label{X1_vecm100}"}
+ts1_vec100 <- ts(datos_VEC100[,1])
+
+plot(ts1_vec100, ylab="X1", main="Variable X1 simulada para VECM")
+```
+
+```{r fig.cap = "Autocorrelación simple de X1 para VECM. \\label{X1_vecm_acf100}", fig.height = 3}
+acf(ts1_vec100, main="X1")
+```
+
+Vemos que la varianza es constante a lo largo de la misma, pero no hay estacionariedad en la parte regular pues la serie presenta una tendencia positiva marcada. Además, si miramos la autocorrelación simple, se observa la típica estructura decreciente característica de series no estacionarias. En cuanto a estacionalidad, la serie no es estacionaria en la parte estacional como se puede observar en el gráfico de la serie.
+
+Vamos a contrastar la hipótesis de no estacionariedad.
+
+|            | Augmented DF | P-Value |
+|------------|:------------:|:-------:|
+| X1_vecm100 |    -2.1256   |  0.5246 |
+
+El test nos indica que la serie presenta raices unitarias y que es necesario aplicar diferencias. Vamos a aplicar una primera diferencia a la serie $X1$ simulada, y, volveremos a contrastar si tiene raices unitarias.
+
+```{r fig.height = 3, fig.cap = "Variable X1 en diferencias para VECM. \\label{X1_vecm_diff100}"}
+ts1_vec_diff100 <- ts(diff(datos_VEC100[,1])) #aplicamos una primera diferencia
+
+plot(ts1_vec_diff100, ylab="X1", main="Variable X1 en diferencias para VECM")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "Autocorrelación simple de X1 en diferencias para VECM. \\label{X1_vecm_diff_acf100}", fig.height = 3}
+acf(ts1_vec_diff100, main="X1")
+```
+
+Vemos que al aplicar una primera diferencia regular la serie toma valores en torno a una media (0) y no presenta ni tendencia, crecimiento sistemático, o comportamientos de paseo aleatorio. Además, la estructura de la autocorrelación simple se ha eliminado y ahora no hay retardos que sobrepasen las bandas de confianza. Por último, vamos a constratar que la serie no necesita otra diferencia regular mediante el test de Dickey-Fuller aumentado.
+
+|                 | Augmented DF | P-Value |
+|-----------------|:------------:|:-------:|
+| diff_X1_vecm100 |    -4.0675   |  < 0.01 |
+
+Se rechaza la hipótesis nula de que la serie no es estacionaria por lo que podemos concluir que la serie original $X1$ es $I(1)$.
+
+Ahora, vamos a repetir este proceso con la serie $X2$. Comenzaremos con el análisis descriptivo de la serie original.
+
+```{r fig.height = 3, fig.cap = "Variable X2 para VECM. \\label{X2_vecm100}"}
+ts2_vec100 <- ts(datos_VEC100[,2])
+
+plot(ts2_vec100, ylab="X2", main="Variable X2 simulada para VECM")
+```
+
+```{r fig.cap = "Autocorrelación simple de X2 para VECM. \\label{X2_vecm_acf100}", fig.height = 3}
+acf(ts2_vec100, main="X2")
+```
+
+
+Igual que con $X1$, la serie presenta una tendencia positiva, no oscila en torno a una media, y su autocorrelación simple presenta una estructura decreciente muy marcada con varios retardos significativos. En cuanto a la estacionalidad, la serie no presenta comportamiento estacional. A continuación, usamos otra vez el test de Dickey-Fuller aumentado para contrastar que la serie necesita una diferencia regular.
+
+|            | Augmented DF | P-Value |
+|------------|:------------:|:-------:|
+| X2_vecm100 |    -2.3672   |  0.4245 |
+
+Se acepta la hipótesis de que la serie no es estacionaria por lo que necesitamos aplicar diferencias. Vamos a diferenciar la serie y ver si necesita otra diferencia o si con una sirve.
+
+```{r fig.height = 3,  fig.cap = "Variable X2 en diferencias para VECM. \\label{X2_vecm_diff100}"}
+ts2_vec_diff100 <- ts(diff(datos_VEC100[,2])) #aplicamos una primera diferencia
+
+plot(ts2_vec_diff100, ylab="X2", main="Variable X2 en diferencias para VECM")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "Autocorrelación simple de X2 en diferencias para VECM. \\label{X2_vecm_diff_acf100}", fig.height = 3}
+acf(ts2_vec_diff100, main="X2")
+```
+
+Tanto el gráfico de la serie diferenciada como la autocorrelación simple indican que la serie es estacionaria y que no hace falta otra diferencia en la parte regular. La serie oscila en torno al 0, y se ha eliminado la estructura de la autocorrelación simple. Vamos a contrastarlo con el test de Dickey-Fuller aumentado.
+
+|                 | Augmented DF | P-Value |
+|-----------------|:------------:|:-------:|
+| diff_X2_vecm100 |    -4.7642   |  < 0.01 |
+
+Rechazamos $H_0$ con lo que tenemos que $X2$ es $I(1)$ igual que $X1$. El siguiente paso es crear un modelo que relacione las variables en el largo plazo del tipo $Y_t = c+\beta X_t + u_t$ por mínimos cuadrados ordinarios.
+
+```{r fig.cap = "Relación lineal entre X1 y X2 simuladas para VECM 100 observaciones. \\label{linearmod_vecm100}", fig.height = 3}
+colnames(datos_VEC100) <- c("X1", "X2")
+datos_VEC <- as.data.frame(datos_VEC100)
+
+coint_mod <- lm(X1~X2, data = datos_VEC)
+beta0 <- coint_mod$coefficients[1]
+beta1 <- coint_mod$coefficients[2]
+plot(datos_VEC$X2, datos_VEC$X1, ylab = "X1", xlab = "X2", main = "Regresión lineal de X1~X2")
+abline(coef = c(beta0,beta1), col="blue")
+```
+
+La relación de largo plazo es positiva y los valores de los estadísticos e indicadores de ajuste se recogen en el siguiente summary:
+
+|           | Estimate | Std. Error | t.value | p-value |
+|-----------|:--------:|:----------:|---------|---------|
+| Intercept |  0.27714 |   0.50245  | 0.552   | 0.582   |
+| X2        | 1.29552  | 0.08815    | 14.696  | <2e-16  |
+
+El estimador de $\beta_1$ es significativo con valor 1.472, muy cercano al 1.5 real, el $R^2$ es de 0.9774, y el estadístico $F$ es significativo por lo que el modelo es globalmente significativo. Para contrastar si existe cointegración entre las series hace falta que los residuos de este modelo sean estacionarios. La serie temporal de los series presenta las siguientes características.
+
+```{r fig.cap = "Residuos de la relación lineal entre variables simuladas para VECM. \\label{linearmod_vecm_resid100}", fig.height = 3}
+ts_resid_VEC100 <- ts(coint_mod$residuals)
+
+plot(ts_resid_VEC100, ylab="Resid", main="Residuos de la relación lineal X1~X2")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "ACF de los residuos de la relación lineal entre variables simuladas para VECM. \\label{linearmod_vecm_resid_acf100}", fig.height = 3}
+acf(ts_resid_VEC100, main="Resid")
+```
+
+
+La serie temporal de los residuos oscila en torno al cero, y tiene un comportamiento que parece estacionario. La autocorrelación simple muestra que el retardo 1 y 2 sobrepasan las bandas de confianza teniendo el retardo 1 una autocorrelación simple muestral cercana a 0.5. También algunos retardos en torno al retardo 10 sobrepasan las bandas de confianza, aún así no hay una estructura marcada y excepto el retardo 1 y 2, el resto de retardos que sobrepasan las bandas de confianza lo hacen por poco. Vamos a realizar el test de Dickey-Fuller aumentado para salir de dudas y ver si existe cointegración o no. 
+
+|                | Augmented DF | P-Value |
+|----------------|:------------:|:-------:|
+| coint_resid100 |    -3.3996   | 0.05855 |
+
+El test rechaza la hipótesis nula de que los residuos no sean estacionarios, por lo que al ser el modelo lineal globalmente significativo y los residuos estacionarios, concluimos que las series están cointegradas y que se puede estimar un modelo de corrección de equilibrio entre las series.
+
+
+### Datos reales
+
+Aparte de los datos simulados, se van a utilizar dos datasets que contienen datos reales. El primero, recoge variables macroeconómicas de Estados Unidos desde mitad del siglo XX hasta principios del siglo XXI. El segundo, recoge datos sobre los swaps a 9 meses y el LIBOR a 12 meses en la eurozona. 
+
+Dentro de la librería `bvartools` hay un dataset llamado `us_macrodata` que recoge datos cuatrimestrales desde 1959 hasta 2007 sobre la tasa de inflación, la tasa de desempleo, y la tasa de fondos de la reserva federal estadounidense que viene a ser como la tasa de interés a la cual el BCE presta dinero pero para la FED. El dataset original se puede encontrar en https://web.ics.purdue.edu/~jltobias/second_edition/Chapter20/code_for_exercise_1/US_macrodata.csv.
+
+```{r fig.cap = "Datos macro USA 1959-2007. \\label{us_macrodata}", fig.height = 3}
+library(bvartools)
+data("us_macrodata")
+colnames(us_macrodata) <- c("Inflación", "Desempleo", "Interés")
+plot(us_macrodata, xlab="Año")
+```
+
+Las variables macroeconómicas están muy relacionadas y destaca la relación entre inflación y desempleo. En el corto plazo, cuando el desempleo baja, la inflación sube y viceversa, esta relación se recoge en la *Curva de Phillips*, aunque, cabe destacar que esta relación está condicionada por el ciclo económico y en el largo plazo no suele mantenerse. Si miramos el gráfico anterior que muestra las tres series temporales que recoge el conjunto de datos, vemos que en la mayoría de los casos, cuando la serie temporal de inflación sube, el desempleo se reduce, y al revés cuando la inflación baja.
+
+En cambio, en cuanto a la tasa de interés y la inflación, la tasa de interés es un instrumento de política monetaria que se utiliza para controlar la inflación. Los bancos centrales tienen unas tasas de inflación que estiman como *ideales* en torno a las cuales tienen que fluctuar éstas. Cuando la inflación es elevada, un mecanismo de corrección suele ser subir los tipos de interés, ya que si los tipos de interés son más caros, cuesta más dinero financiarse por lo que tanto las empresas como los particulares pedirán menos dinero prestado, y, por lo tanto, consumirán menos reduciendo la demanda de los productos y consigo su precio. Por esto, la inflación y la tasa de interés están muy ligadas pero existe un pequeño desfase temporal entre ellas debido a la naturalez reactiva de las tasas de interés, es decir, estas suelen moverse según los movimientos de las otras. Mirando las series de la gráfica anterior, se puede apreciar cómo el comportamiento de estas series es muy parecido y la serie de tasas de interés está algo desplazada a la derecha respecto de la inflación. 
+
+Por otro lado, las series de interés y desempleo parece que siguen un comportamiento parecido. En general, cuando las tasas de desempleo han sido bajas, los tipos de interés se han mantenido altos ya que una tasa de desempleo baja significa una economía sana por lo que bajar los tipos de interés sólo haría que subiese la inflación. Por esto, Si observamos las series de desempleo e interés desde el inicio hasta los años 80, cuando bajaba el desempleo se aumentaban los tipos, y viceversa. Entre el año 80 y el 87 aproximadamente se rompe esta relación y las series se comportan de manera similar disminuyendo en este periodo. Ya a finales de los 80 hasta el final de la serie, la relación habitual en la que una bajada del desempleo supone un aumento de los tipos y viceversa parece que se restaura.
+
+De las tres series, se van a utilizar para los modelos la serie de desempleo y la inflación que serán utilizadas para modelos VAR ya que sabemos que por teoría estas dos variables no presentan relación en el largo plazo. De todas formas, se realizarán los contrastes pertinentes para contrastar esto. 
+
+```{r fig.height = 3, fig.cap = "Inflación USA 1959-2007. \\label{inflacion_usa}"}
+ts_inflacion <- ts(us_macrodata[,"Inflación"])
+ts_desempleo <- ts(us_macrodata[,"Desempleo"])
+
+plot(ts_inflacion, ylab="Inflación", main="Inflación EEUU 1959-2007")
+```
+
+```{r fig.cap = "ACF inflación. \\label{inflacion_us_acf}", fig.height = 3}
+acf(ts_inflacion, main="Inflación")
+```
+
+```{r fig.cap = "Desempleo USA 1959-2007. \\label{desempleo_us}", fig.height = 3}
+plot(ts_desempleo, ylab="Desempleo", main="Desempleo EEUU 1959-2007")
+```
+
+```{r fig.cap = "ACF desempleo \\label{desempleo_us_acf}", fig.height = 3}
+acf(ts_desempleo, main="Desempleo")
+```
+
+|           | Augmented DF | P-Value |
+|-----------|:------------:|:-------:|
+| Inflacion |    -2.8292   |  0.229  |
+
+
+|           | Augmented DF | P-Value |
+|-----------|:------------:|:-------:|
+| Desempleo |    -2.6612   |  0.2994 |
+
+La estructura de los correlogramas indica que las series no son estacionarias y el test de Dickey-Fuller sugiere que al 5% de significación, ambas series presentas raices unitarias. Aplicamos una primera diferencia para ver si las series son $I(1)$.
+
+```{r fig.height = 3, fig.cap = "Primera diferencia de la Inflación en USA 1959-2007. \\label{inflacion_us_diff}"}
+ts_inflacion_diff <- ts(diff(us_macrodata[,"Inflación"])) #aplicamos una primera diferencia
+ts_desempleo_diff <- ts(diff(us_macrodata[,"Desempleo"])) #aplicamos una primera diferencia
+
+plot(ts_inflacion_diff, ylab="Inflación", main="Inflación EEUU 1959-2007 en diferencias")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "ACF de la primera diferencia Inflación. \\label{inflacion_us_diff_acf}", fig.height = 3}
+acf(ts_inflacion_diff, main="Inflación")
+```
+
+```{r fig.cap = "Primera diferencia del desempleo USA 1959-2007 \\label{desempleo_us_diff}", fig.height = 3}
+plot(ts_desempleo_diff, ylab="Desempleo", main="Desempleo EEUU 1959-2007 en diferencias")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "ACF de la primera diferencia desempleo \\label{desempleo_us_diff_acf}", fig.height = 3}
+acf(ts_desempleo_diff, main="Desempleo")
+```
+
+|                | Augmented DF | P-Value |
+|----------------|:------------:|:-------:|
+| diff_Inflacion |    -6.0731   |  < 0.01 |
+
+
+|                | Augmented DF | P-Value |
+|----------------|:------------:|:-------:|
+| diff_Desempleo |    -5.1733   |  < 0.01 |
+
+Todos los datos anteriores sugieren que las series son $I(1)$ por lo que se cumple la primera condición para determinar si están cointegradas o no. Ahora vamos a relacionar las series por un modelo lineal mediante mínimos cuadrados ordinarios, y, analizaremos los residuos para ver si son estacionarios. En caso afirmativo, las series estarán cointegradas.
+
+```{r  fig.cap = "Relación lineal entre desempleo e inflación. \\label{linearmod_us}", fig.height = 3}
+datos_us <- data.frame(Inflación=us_macrodata[,"Inflación"], Desempleo=us_macrodata[,"Desempleo"])
+coint_mod_us <- lm(Inflación~Desempleo, data = datos_us)
+beta0_us <- coint_mod_us$coefficients[1]
+beta1_us <- coint_mod_us$coefficients[2]
+
+plot(datos_us$Desempleo, datos_us$Inflación, ylab = "Inflación", xlab = "Desempleo", main = "Regresión lineal de Inflación~Desempleo")
+abline(coef = c(beta0_us,beta1_us), col="blue")
+```
+
+|           | Estimate | Std. Error | t.value | p-value |
+|-----------|:--------:|:----------:|---------|---------|
+| Intercept |  0.5683  |   0.2212   | 2.570   | 0.0109  |
+| Desempleo | 0.0768   | 0.0368     | 2.087   | 0.0382  |
+
+El coeficiente $\beta_{desempleo}$ es significativo, positivo igual a `r beta1_us`. El modelo es globalmente significativo aunque el $R^2$ es prácticamente 0. Vamos a ver si los residuos son estacionarios.
+
+```{r fig.cap =  "Residuos de la relación lineal entre inflación y desempleo. \\label{linearmod_us_resid}", fig.height = 3}
+ts_resid_us <- ts(coint_mod_us$residuals)
+
+plot(ts_resid_us, ylab="Resid", main="Residuos de la relación lineal Inflación~Desempleo")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "ACF de los residuos de la relación lineal entre inflación y desempleo. \\label{linearmod_us_resid_acf}", fig.height = 3}
+acf(ts_resid_us, main="Resid")
+```
+
+
+|                 | Augmented DF | P-Value |
+|-----------------|:------------:|:-------:|
+| coint_Inflacion |    -2.4655   |  0.3813 |
+
+El test de Dickey-Fuller indica que los residuos no son estacionarios, esto sugiere que no se puede aplicar un modelo de corrección de equilibrio a las series ya que no hay una relación de largo plazo subyacente. Por esto, estas series se usarán para los modelos VAR frecuentista y bayesiano.
+
+El otro conjunto de datos que se va a analizar recoge  tipo de interés OVERNIGHT (Swaps) a 9 meses y el LIBOR (interbancario) a 12 meses en la euro zona, observados diariamente desde 10 de marzo de 1999 hasta el 21 de mayo de 2007. La variable *OVERNIGHT* recoge los swaps a 9 meses sobre los tipos de interés en inglaterra. Esto es, unos contratos entre dos partes en los que se acuerda intercambiar un activo; en este caso dinero invertido en unos depósitos a tipo de interés fijo, en una fecha concreta. Por otro lado, la variable *LIBOR* recoge los tipos de interés interbancarios en el mercado de Londres (London InterBank Offered Rate) a 12 meses. Estas variables se sabe que están muy relacionadas ya que los swaps actúan como futuros, o, especulaciones de los valores que tomará el LIBOR. 
+
+Vamos a analizar si las series están cointegradas, y, en caso afirmativo, se usarán para los modelos de corrección de equilibrio.
+
+```{r fig.cap = "Serie de LIBOR y OVERNIGHT 1999-2007. \\label{libor_overnight}", fig.height = 3}
+library(ggplot2)
+libor_overnight <- readxl::read_excel("libor_overnight.xlsx")
+
+s <- as.Date("2001-03-10")
+e <- as.Date("2007-05-21")
+data_libor = data.frame(observacion=c(1:dim(libor_overnight)[1]), datos=c(libor_overnight$libor, libor_overnight$overnight), type=factor(c(rep("libor", dim(libor_overnight)[1]), rep("overnight", dim(libor_overnight)[1]))))
+
+ggplot(data=data_libor, aes(x=observacion, y=datos, color=type)) +
+  geom_line()
+```
+
+Se puede apreciar que ambas series no son estacionarias en la parte regular ya que no presentan una media constante a lo largo del tiempo. También, destaca la ausencia de estacionalidad tanto trimestral como mensual. Otro aspecto que salta a la vista es el comportamiento tan similar que presentan las series; esto podría indicar que están cointegradas, pero para esto hay que estimar un modelo de largo plazo entre las dos series y ver si los residuos de dicho modelo son estacionarios. 
+
+```{r fig.height = 3,fig.cap =  "ACF de LIBOR. \\label{libor_acf}"}
+ts_libor <- ts(libor_overnight$libor)
+ts_overnight <- ts(libor_overnight$overnight)
+
+acf(ts_libor, main="LIBOR")
+```
+
+```{r fig.cap = "ACF de OVERNIGHT \\label{overnight_acf}", fig.height = 3}
+acf(ts_overnight, main="OVERNIGHT")
+```
+
+|       | Augmented DF | P-Value |
+|-------|:------------:|:-------:|
+| LIBOR |   -0.40051   |  0.9863 |
+
+|           | Augmented DF | P-Value |
+|-----------|:------------:|:-------:|
+| OVERNIGHT |   -0.24908   |   0.99  |
+
+Las series diferenciadas presentan las siguientes características:
+
+```{r fig.cap = "Serie de LIBOR con primera diferencia. \\label{libor_diff}", fig.height = 3}
+ts_libor_diff <- ts(diff(libor_overnight$libor))
+ts_overnight_diff <- ts(diff(libor_overnight$overnight))
+plot(ts_libor_diff, main="LIBOR en diferencias")
+```
+
+```{r fig.cap = "ACF de LIBOR con primera diferencia. \\label{libor_diff_acf}", fig.height = 3}
+acf(ts_libor_diff, main="LIBOR en diferencias")
+```
+
+```{r fig.cap = "Serie de OVERNIGHT con primera diferencia. \\label{overnight_diff}", fig.height = 3}
+plot(ts_overnight_diff, main="OVERNIGHT en diferencias")
+```
+
+```{r fig.cap = "ACF de OVERNIGHT con primera diferencia. \\label{overnight_diff_acf}", fig.height = 3}
+acf(ts_overnight_diff, main="OVERNIGHT en diferencias")
+```
+
+|            | Augmented DF | P-Value |
+|------------|:------------:|:-------:|
+| diff_LIBOR |    -11.236   |  < 0.01 |
+
+|                | Augmented DF | P-Value |
+|----------------|:------------:|:-------:|
+| diff_OVERNIGHT |    -11.008   |  < 0.01 |
+
+El test de Dickey-Fuller para ambas series indica que existen raices unitarias, y el test para las series diferenciadas nos dice que ambas son $I(1)$ que es la primera condición que se tiene que cumplir para llegar concluir que están cointegradas. Falta ver si los residuos de la relación de largo plazo son estacionarios.
+
+```{r fig.cap = "Relación lineal entre LIBOR y OVERNIGHT. \\label{linearmod_libor}", fig.height = 3}
+coint_mod_libor <- lm(libor~overnight, data = libor_overnight)
+beta0_libor <- coint_mod_libor$coefficients[1]
+beta1_libor <- coint_mod_libor$coefficients[2]
+
+plot(libor_overnight$overnight, libor_overnight$libor, ylab = "LIBOR", xlab = "OVERNIGHT", main = "Regresión lineal de LIBOR~OVERNIGHT")
+abline(coef = c(beta0_libor,beta1_libor), col="blue")
+```
+
+|           | Estimate | Std. Error | t.value | p-value |
+|-----------|:--------:|:----------:|---------|---------|
+| Intercept | 0.128911 |  0.004961  | 25.98   | <2.e-16 |
+| OVERNIGHT | 1.000089 | 0.001508   | 663.19  | <2.e-16 |
+
+La tabla anterior recoge los datos de la relación estimada y muestra que tanto el contraste de significación global y el individual son significativos siendo la estimación de $\beta_{overnight}$ `r beta1_libor`. La relación tiene un $R^2$ altísimo del 99.52%. Cuando hemos introducido el concepto de relaciones espúrias comentábamos que cuando se daba esta situación los estadísticos y métricas de ajuste eran muy buenas pero que luego a la hora de analizar la estacionariedad de los residuos estos no resultaban ser estacionarios. Por ello, el último paso para determinar la cointegración es analizar si los residuos son estacionarios.
+
+```{r fig.cap = "Residuos de la relación lineal entre LIBOR y OVERNIGHT. \\label{linearmod_libor_resid}", fig.height = 3}
+ts_resid_libor <- ts(coint_mod_libor$residuals)
+
+plot(ts_resid_libor, ylab="Resid", main="Residuos de la relación lineal LIBOR~OVERNIGHT")
+abline(h=0, col="blue")
+```
+
+```{r fig.cap = "ACF de residuos de la relación lineal entre LIBOR y OVERNIGHT. \\label{linearmod_libor_resid_acf}", fig.height = 3}
+acf(ts_resid_us, main="Resid")
+```
+
+|                 | Augmented DF | P-Value |
+|-----------------|:------------:|:-------:|
+| coint_LIBOROVER |    -3.5066   | 0.04165 |
+
+La serie temporal de los residuos muestra que oscilan alrededor de un valor constante con una estructura de dependencia sin comportamiento aleatorio. Esto es irrelevante ya que no es necesario que los residuos sean ruido blanco sino que sean estacionarios. El test de Dickey-Fuller aumentado da la información necesaria para concluir que las series están cointegradas por lo que existe una relación de largo plazo entre ellas y se pueden estimar modelos de corrección de equilibrio. 

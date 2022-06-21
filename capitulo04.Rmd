@@ -1,0 +1,110 @@
+---
+author: "Nombre Completo Autor"
+date: "27/10/2017"
+documentclass: book
+forprint: true  # true: imprime a dos caras, false: libro digital
+fontsize: 12pt # 10pt,11pt
+geometry: margin = 2.5cm 
+bibliography: ["bib/library.bib", "bib/paquetes.bib"]
+# metodobib -> true: natbib (descomentar: citation_package: natbib) 
+#           -> false: pandoc (comentar: citation_package: natbib)
+metodobib: true
+#natbib: plainnat, abbrvnat, unsrtnat
+biblio-style: "plainnat"
+#Método 2 (pandoc): descomente una línea de las 2 siguientes en caso de usarlo
+csl: methods-in-ecology-and-evolution.csl      # no numera mejor en las citas
+#csl: acm-sig-proceedings-long-author-list.csl  # numera peor en las citas
+link-citations: yes
+output: 
+  pdf_document:
+    keep_tex: no
+    number_sections: yes
+    citation_package: natbib  # comentado usa: pandoc-citeproc
+    #toc: yes
+    fig_caption: yes
+    template: latex/templateMemoriaTFE.tex
+    includes:
+      #before_body: portadas/latex_paginatitulo_modTFE.tex
+      #in_header: latex/latex_preambulo.tex
+      #after_body: latex/latex_antes_enddoc.tex
+---
+
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.path = 'figurasR/',
+                      echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.pos="H",fig.align="center",out.width="95%",
+                      cache=FALSE)
+
+```
+
+
+<!-- \setcounter{chapter}{2} -->
+<!-- \setcounter{chapter}{2} escribir 2 para capítulo 3  -->
+<!-- \pagenumbering{arabic} -->
+
+\ifdefined\ifprincipal
+\else
+\setlength{\parindent}{1em}
+\pagestyle{fancy}
+\setcounter{tocdepth}{4}
+\tableofcontents
+<!-- \nocite{*} -->
+\fi
+
+\ifdefined\ifdoblecara
+\fancyhead{}{}
+\fancyhead[LE,RO]{\scriptsize\rightmark}
+\fancyfoot[LO,RE]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[LE,RO]{\footnotesize\thepage}
+\else
+\fancyhead{}{}
+\fancyhead[RO]{\scriptsize\rightmark}
+\fancyfoot[LO]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[RO]{\footnotesize\thepage}
+\fi
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+
+# Conclusiones
+
+## Motivación de la inferencia bayesiana
+
+Los modelos VAR y VECM son modelos muy populares y muy usados desde finales del siglo XX. Su principal ventaja es la facilidad de implementación. Sólo hace falta relacionar una serie de variables que expliquen el comportamiento de las otras y determinar el número de retardos para incorporar en el modelo. 
+
+Aún así, es normal incluir un número elevado de variables en estos modelos, y, también, un número elevado de retardos. Esto hace que solamente el número de coeficientes autorregresivos que se tengan que estimar en un modelo VAR sea del orden $p \times l$ siendo $p$ el número de variables y $l$ el número de retardos que se incorporan en el modelo. Este es el problema de *sobreparametrización* que genera unas estimaciones inestables con errores estándar elevados.
+
+Los métodos bayesianos ofrecen una solución a este problema ya que al incorporar información a priori, las estimaciones dejan de ser inestables y los errores estándar se reducen. Además, otra característica positiva es que se obtienen distribuciones de probabilidad para los parámetros estimados independientemente del tamaño muestral.
+
+## Problemas en la inferencia bayesiana
+
+Si la información a priori que se incorpora en los modelos bayesianos es acertada, las estimaciones frente a métodos frecuentistas son más robustas. Además, si el tamaño muestral es pequeño, aparte de ser más robustas pueden ser más precisas ya que la estimación a posteriori no se ve tan influenciada por los datos extremos. 
+
+Esto significa que la calidad de las estimaciones con métodos bayesianos depende fuertemente de la información a priori que se incorpore, sobre todo con pocos datos. Hemos visto los modelos BVAR donde no hay un consenso sobre la distribución a priori que se debe utilizar, y por ello surgen los métodos jerárquicos que tratan a las a priori como hyperparámetros con sus respectivas hyperpriors. Este enfoque obtiene estimaciones más robustas pero aún así, dependen de la información a priori que se introduzca en los hiperparámetros; aunque, en general, no hace falta tener información muy precisa para que funcionen bien y converjan.
+
+En cuanto a los modelos de corrección de equilibrio, también es muy importante la información a priori, además, existe un problema a la hora de estimar el modelo ya que al incorporar la relación de largo plazo, la matriz que recoge esta relación suele ser de rango reducido y causa problemas de identificación. Por un lado, hay problemas de identificación global que se han ido solucionando con la normalización lineal, y, por otro, hay problemas de identificación local donde una distribución a priori no informativa genera una distribución a posteriori impropia. 
+
+Koop et al. (2010) proponen una solución a estos problemas asociados a la estimación bayesiana de modelos de corrección de equilibrio, que resulta en una estimación que no impone restricciones en el espacio de cointegración, y que asegura la convergencia del muestreador de Gibbs empleado para la obtención de las distribuciones a posteriori. Véase \ref{eq:betaprior} a \ref{eq:ABprior2}.
+
+## Estimación de los coeficientes
+
+La estimación de estos modelos se ha aplicado a dos conjuntos de datos simulados con 1000 observaciones, dos conjuntos de datos simulados con 100 observaciones y dos conjuntos de datos reales. En cada par de conjuntos, uno contiene variables cointegradas y otro variables no cointegradas.
+
+Para los datos simulados con 1000 observaciones, las estimaciones bayesiana y frecuentista son muy similares y cercanas a los valores reales de los parámetros, tanto para la parte autorregresiva, como para la parte de largo plazo en el modelo de corrección de equilibrio. La semejanza en las estimaciones, se debe en gran parte a la cantidad de los datos que tienen mucho peso en la estimación a posteriori de los modelos bayesianos.
+
+El conjunto de datos simulados con 100 observaciones de variables no cointegradas, ha demostrado que las estimaciones bayesianas pueden mejorar las estimaciones frecuentistas cuando el tamaño muestral es reducido. El método frecuentista en general estima bastante mal los coeficientes autorregresivos y el método bayesiano, aunque tampoco es muy preciso, mejora las estimaciones para el modelo de la primera variable. La estimación de la matriz de varianzas-covarianzas en general es bastante mala para ambos métodos.
+
+Las estimaciones para los datos simulados de 100 observaciones con variables cointegradas han sido muy similares. La relación a largo plazo está bastante cerca de la real (-1.4 estimado y -1.5 real) en ambos métodos, la parte autorregresiva para el primer retardo está bien estimada en ambos métodos y para el segundo retardo ambos métodos fallan bastante. El método frecuentista es normal que falle con pocos datos, y el método bayesiano en general lo hace bien porque acierta con la estimación de largo plazo y la parte autorregresiva del primer retardo, pero falla para el segundo retardo, seguramente porque las distribuciones a priori debían haberse especificado mejor para incorporar más información al modelo.
+
+En cuanto a los datasets reales, en general las estimaciones han sido muy similares y en gran parte se debe a que los datasets contienen bastantes datos lo que hace que en la estimación a posteriori pese mucho esta parte.
+
+## Capacidad predictiva
+
+Por último, para la capacidad predictiva se ha aplicado un algoritmo *walk-forward validation*, para los datasets reales. En general, la capacidad predictiva medida con la media del MRSE de las iteraciones del algoritmo es muy similar para ambos métodos. Las causas de esto son principalmente: 
+
+1. Debido a limitaciones computacionales, el número de observaciones iniciales con la que se ha empezado el algoritmo ha sido grande en general lo que hace que los datos pesen bastante en las estimaciones a posteriori de los parámetros y por ende en las predicciones.
+2. Por limitaciones computacionales, se ha modificado el algoritmo, y en vez de iterar para cada observación fuera del conjunto inicial, en cada iteración se han hecho predicciones a $t+30$ y $t+4$ según si los datos eran diarios o trimestrales. Esto hace que las predicciones lejanas, sean muy similares en ambos métodos y por ello el MRSE muy similar.

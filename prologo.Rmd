@@ -1,0 +1,20 @@
+---
+output: pdf_document
+---
+
+Este trabajo de fin de grado es el punto y final a una etapa que ha durado 4 años y de la que estoy tremendamente orgulloso, me llevo grandes recuerdos y multitud de conocimientos y lecciones aprendidas. 
+
+Aquí termina mi etapa de *undergraduate*, y, aunque no voy a continuar con estudios superiores por el momento, me voy de la universidad con una curiosidad y hambre por seguir aprendiendo enorme. Esto, en parte, se ve reflejado en este trabajo de investigación que no es más que el fruto de mi interés por investigar sobre la intersección de dos campos de estudio a los que se me ha introducido este último año de carrera y que me han fascinado.
+
+Este trabajo es una parte ínfima de lo que representa mi paso por el Grado en Estadística y Empresa en la Universidad Carlos III, pero refleja algunas de las lecciones aprendidas durante mi formación: 
+
+- Rigor. Ha sido un tópico durante los 4 años y nos obliga a no buscar la respuesta por tener una respuesta, si no que se llegue a ella de manera fundada y objetiva.
+- El cuidado por el detalle es otra parte importante de la forma en la que nos han enseñado a trabajar, tu trabajo refleja parte de cómo eres.
+- La profundidad de conocimiento se ve reflejada en las extensas explicaciones sobre la teoría que hay detrás de cada modelo que se ha implementado. Una frase que recoge muy bien este concepto es "No sirve con saber hacer algo, hay que saber por qué lo haces".
+- Por último, pero el más importante, la honestidad científica. En estos 4 años nos han enseñado que no siempre se consiguen resultados concluyentes, que "no model is better than a bad model" y que la forma en la que se lleva a cabo una investigación o análisis de datos puede influir en los resultados, por esto es importante ser objetivo y honesto a la hora de sacar conclusiones. Este aspecto se ve reflejado en el capítulo 4 del trabajo.
+
+Todo esto, en parte, ha hecho que el trabajo sea más extenso de lo que me habría gustado.
+
+Con todo esto lo que quiero expresar es que aunque esta sea la última huella que dejo en mi paso por la universidad, no habría sido posible llegar hasta este lugar sin todas las personas que me he cruzado durante estos cuatro años. A los profesores, compañeros de clase, mi familia y amigos, gracias por todo.
+
+Por último, quiero agradecer a Juan Miguel Marín Diazaraque su labor como tutor de este trabajo de fin de grado, en muchos momentos he estado perdido y no sabía muy bien por donde avanzar pero gracias a su ayuda y consejo creo que he tomado buenas decisiones.

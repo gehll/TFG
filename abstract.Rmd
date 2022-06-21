@@ -1,0 +1,15 @@
+---
+output: pdf_document
+---
+
+This final thesis is a research work on Bayesian methods for autoregressive and equilibrium correction models. The main objective of the work is to understand the motivations for applying Bayesian methods for the estimation of this type of models, their advantages and disadvantages versus traditional frequentist methods and to analyze the differences in the estimation of the parameters and the predictive capacity of each one.
+
+The main scenario in which a Bayesian estimation method would be chosen over a frequentist method would be the case in which there are numerous predictors with several lags to be included in the model, which generates an over-parameterization resulting in unstable estimates and very high standard deviations using the frequentist method. Another advantage is that probability distributions can be obtained for each estimated parameter regardless of the sample size. 
+
+Even so, Bayesian methods have their drawbacks, especially the choice of a priori information. If this information is not well chosen and there is little data, the estimates can be very poor, and, in addition, depending on the a priori chosen, an improper a posteriori can be obtained. These problems, in addition to the problem of estimating the long-run relationship in equilibrium correction models are addressed in the paper, and literature-based solutions that generate more robust and computationally efficient estimates are proposed. 
+
+To compare the estimates and predictive ability of each method, 6 different datasets are analyzed. Three of them contain non-cointegrated variables and the other three contain cointegrated variables. In each group, there is a real dataset and two simulated datasets, one of 1000 observations and the other of 100. In this way, the simulated data can be used to compare the estimates of each method with the real values of the parameters. The real datasets are used to compare estimates but, in addition, they are used to compare the predictive capacity of the models by means of a walk-forward validation algorithm modified to be computationally affordable. 
+
+In terms of inference, the almost identical frequentist and Bayesian estimates for datasets with many observations (due to the weight they have in the a posteriori) and in simulated data sets with few observations are also very similar although there is a slight improvement in the Bayesian method for autoregressive models. However, this slight improvement is not conclusive and significant since it occurs for only a few parameters and in one model.
+
+The predictive capacity does not show differences between the methods either, but it is largely conditioned by the modification made to the walk-forward validation algorithm to make it computationally affordable.
